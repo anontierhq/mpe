@@ -8,7 +8,7 @@ use lapin::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::log_msg;
+use crate::{log_msg, processor::MessageProcessor, config::Config};
 
 const DEFAULT_CONSUMER_TAG: &'static str = "unique_mpe_worker";
 
@@ -47,8 +47,7 @@ impl RabbitConnection {
     ///
     /// # Arguments
     ///
-    /// * `addr` - The address of the RabbitMQ server to connect to.
-    /// * `consumer_queue` - The name of the queue to consume messages from.
+    /// * `config` - The configuration containing AMQP address and consumer queue details.
     ///
     /// # Returns
     ///
@@ -65,11 +64,12 @@ impl RabbitConnection {
     /// # Example
     ///
     /// ```rust
-    /// let connection = RabbitConnection::establish_conn("amqp://localhost:5672", "my_queue").await?;
+    /// let config = Config::load()?;
+    /// let connection = RabbitConnection::establish_conn(&config).await?;
     /// ```
-    pub async fn establish_conn(addr: &str, consumer_queue: &str) -> Result<Self> {
-        log_msg!(debug, "Trying to establish to RabbitMQ server with {addr}");
-        let conn = Connection::connect(addr, ConnectionProperties::default()).await?;
+    pub async fn establish_conn(config: &Config) -> Result<Self> {
+        log_msg!(debug, "Trying to establish to RabbitMQ server with {}", config.addr);
+        let conn = Connection::connect(&config.addr, ConnectionProperties::default()).await?;
 
         log_msg!(debug, "Trying to create a channel with RabbitMQ server");
         let channel = conn.create_channel().await?;
@@ -80,7 +80,7 @@ impl RabbitConnection {
         );
         let consumer = channel
             .basic_consume(
-                consumer_queue,
+                &config.queue,
                 DEFAULT_CONSUMER_TAG,
                 BasicConsumeOptions::default(),
                 FieldTable::default(),
@@ -128,10 +128,7 @@ impl RabbitConnection {
         Ok(())
     }
 
-    pub async fn process_messages<F, Fut>(&mut self, mut handler: F) -> Result<()>
-    where
-        F: FnMut(ProcessTask) -> Fut,
-        Fut: std::future::Future<Output = Result<()>>,
+    pub async fn process_messages<P: MessageProcessor>(&mut self, handler: P) -> Result<()>
     {
         log_msg!(info, "Starting message processing loop");
 
@@ -181,7 +178,7 @@ impl RabbitConnection {
                         continue;
                     };
 
-                    match handler(process_task).await {
+                    match handler.process(process_task).await {
                         Ok(()) => {
                             log_msg!(
                                 debug,

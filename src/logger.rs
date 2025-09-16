@@ -11,4 +11,7 @@ macro_rules! log_msg {
             log::debug!($($arg)+)
         }
     };
+    (warn, $($arg:tt)+) => {
+        log::warn!($($arg)+)
+    };
 }
