@@ -8,7 +8,7 @@ use lapin::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::{log_msg, processor::MessageProcessor, config::Config};
+use crate::{config::Config, log_msg, processor::processor::TaskHandler};
 
 const DEFAULT_CONSUMER_TAG: &'static str = "unique_mpe_worker";
 
@@ -18,14 +18,14 @@ pub struct RabbitConnection {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
-pub enum ProcessTask {
+pub enum ProcessTask<'a> {
     Composed {
-        job_id: i32,
-        medias_to_process: Vec<Media>,
+        job_id: &'a str,
+        medias_to_process: Vec<Media<'a>>,
     },
     Unique {
-        attached_job: i32,
-        media_to_process: Media,
+        attached_job: &'a str,
+        media_to_process: Media<'a>,
     },
 }
 
@@ -36,9 +36,9 @@ pub enum MediaType {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Media {
+pub struct Media<'a> {
     pub id: i32,
-    pub filepath: String,
+    pub filepath: &'a str,
     pub media_type: MediaType,
 }
 
@@ -68,7 +68,11 @@ impl RabbitConnection {
     /// let connection = RabbitConnection::establish_conn(&config).await?;
     /// ```
     pub async fn establish_conn(config: &Config) -> Result<Self> {
-        log_msg!(debug, "Trying to establish to RabbitMQ server with {}", config.addr);
+        log_msg!(
+            debug,
+            "Trying to establish to RabbitMQ server with {}",
+            config.addr
+        );
         let conn = Connection::connect(&config.addr, ConnectionProperties::default()).await?;
 
         log_msg!(debug, "Trying to create a channel with RabbitMQ server");
@@ -108,28 +112,7 @@ impl RabbitConnection {
         }
     }
 
-    pub async fn ack_message(delivery: &Delivery) -> Result<()> {
-        log_msg!(
-            info,
-            "Acknowledging message with delivery tag: {}",
-            delivery.delivery_tag
-        );
-        delivery.ack(BasicAckOptions::default()).await?;
-        Ok(())
-    }
-
-    pub async fn reject_message(delivery: &Delivery) -> Result<()> {
-        log_msg!(
-            info,
-            "Rejecting message with delivery tag: {}",
-            delivery.delivery_tag
-        );
-        delivery.reject(BasicRejectOptions::default()).await?;
-        Ok(())
-    }
-
-    pub async fn process_messages<P: MessageProcessor>(&mut self, handler: P) -> Result<()>
-    {
+    pub async fn process_messages(&mut self) -> Result<()> {
         log_msg!(info, "Starting message processing loop");
 
         // Okay, all is sync until here. The main loop. Each message will
@@ -143,9 +126,13 @@ impl RabbitConnection {
 
             match self.next_message().await {
                 Ok(Some(delivery)) => {
-                    let delivery_tag = delivery.delivery_tag;
+                    log_msg!(
+                        info,
+                        "Started processing delivery with delivery tag {}",
+                        delivery.delivery_tag
+                    );
 
-                    let process_task = if let Ok(json) = String::from_utf8(delivery.data.clone()) {
+                    let process_task = if let Ok(json) = str::from_utf8(&delivery.data[..]) {
                         match from_json_str(&json) {
                             Ok(r) => r,
                             Err(_) => {
@@ -157,8 +144,10 @@ impl RabbitConnection {
                                 // Do not lose time rejecting the message.
                                 // Schedule this and go to next message.
                                 tokio::spawn(async move {
-                                    match Self::reject_message(&delivery).await {
-                                        Ok(_) => {}
+                                    match reject_message(&delivery).await {
+                                        Ok(_) => {
+                                            log_msg!(info, "Reject malformed RabbitMQ Json String")
+                                        }
                                         Err(err) => log_msg!(
                                             error,
                                             "Error while trying to reject message: {err}"
@@ -172,29 +161,16 @@ impl RabbitConnection {
                     } else {
                         log_msg!(
                             error,
-                            "Error while trying to parse delivery message to UTF-8 String"
+                            "Error while trying to parse delivery message to UTF-8 String. 
+                            Going to the next message round."
                         );
 
                         continue;
                     };
 
-                    match handler.process(process_task).await {
-                        Ok(()) => {
-                            log_msg!(
-                                debug,
-                                "Message processed successfully, acknowledging delivery tag: {}",
-                                delivery_tag
-                            );
-                        }
-                        Err(err) => {
-                            log_msg!(error, "Error processing message: {}", err);
-                            log_msg!(
-                                debug,
-                                "Message rejected due to processing error, delivery tag: {}",
-                                delivery_tag
-                            );
-                        }
-                    }
+                    if let Err(unprocessed) = TaskHandler::it(process_task) {
+                        // try_process_again
+                    };
                 }
                 Ok(None) => {}
                 Err(err) => {
@@ -205,7 +181,27 @@ impl RabbitConnection {
     }
 }
 
-fn from_json_str(json_str: &str) -> Result<ProcessTask> {
+fn from_json_str(json_str: &str) -> Result<ProcessTask<'_>> {
     let task = serde_json::from_str(json_str)?;
     Ok(task)
+}
+
+async fn ack_message(delivery: &Delivery) -> Result<()> {
+    log_msg!(
+        info,
+        "Acknowledging message with delivery tag: {}",
+        delivery.delivery_tag
+    );
+    delivery.ack(BasicAckOptions::default()).await?;
+    Ok(())
+}
+
+async fn reject_message(delivery: &Delivery) -> Result<()> {
+    log_msg!(
+        info,
+        "Rejecting message with delivery tag: {}",
+        delivery.delivery_tag
+    );
+    delivery.reject(BasicRejectOptions::default()).await?;
+    Ok(())
 }
