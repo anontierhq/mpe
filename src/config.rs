@@ -1,4 +1,4 @@
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use clap::Parser;
 
 use crate::log_msg;
@@ -10,30 +10,40 @@ use crate::log_msg;
 #[command(version = "0.1.0")]
 pub struct Config {
     /// AMQP server address
-    #[arg(short, long, env = "AMQP_ADDR", default_value = "amqp://127.0.0.1:5672/%2f")]
+    #[arg(
+        short,
+        long,
+        env = "AMQP_ADDR",
+        default_value = "amqp://127.0.0.1:5672/%2f"
+    )]
     pub addr: String,
 
     /// Consumer queue name
-    #[arg(short = 'q', long, env = "CONSUMER_QUEUE", default_value = "mpe_default_queue")]
+    #[arg(
+        short = 'q',
+        long,
+        env = "CONSUMER_QUEUE",
+        default_value = "mpe_default_queue"
+    )]
     pub queue: String,
 
     /// Number of worker processes.
     #[arg(short, long, env = "MPE_WORKERS", default_value = "1")]
-    pub workers: i32,
+    pub workers: u64,
 
     /// Number of threads per worker
     #[arg(short, long, env = "MPE_THREADS", default_value = "4")]
-    pub threads: i32,
+    pub threads: u64,
 }
 
 impl Config {
     pub fn load() -> Result<Self> {
         let config = Config::parse();
-        
+
         if config.workers <= 0 {
             bail!("Workers must be greater than 0");
         }
-        
+
         if config.threads <= 0 {
             bail!("Threads must be greater than 0");
         }
@@ -47,7 +57,10 @@ impl Config {
         }
 
         if config.threads > 32 {
-            log_msg!(warn, "Using more than 32 threads per worker is not recommended.");
+            log_msg!(
+                warn,
+                "Using more than 32 threads per worker is not recommended."
+            );
         }
 
         if config.workers > 16 {

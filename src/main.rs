@@ -1,13 +1,14 @@
 use anyhow::{Result, bail};
 use simple_logger::SimpleLogger;
 
-use crate::rabbit::RabbitConnection;
 use crate::config::Config;
+use crate::rabbit::RabbitConnection;
 
-mod logger;
-mod rabbit;
-mod processor;
 mod config;
+mod logger;
+mod processor;
+mod rabbit;
+mod tasks;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -23,7 +24,7 @@ async fn main() -> Result<()> {
 
     // We really want to lock the main function while establishing the connection.
     // The real async comes later.
-    let conn = match RabbitConnection::establish_conn(&config).await {
+    let mut conn = match RabbitConnection::establish_conn(config).await {
         Ok(conn) => {
             log_msg!(info, "Connected succefully to RabbitMQ instance");
             conn
@@ -33,6 +34,17 @@ async fn main() -> Result<()> {
             bail!("Failed to connect to RabbitMQ: {err}");
         }
     };
+
+    if let Err(err) = conn.process_messages().await {
+        log_msg!(
+            error,
+            "MPE ended. Critical error on Main Loop Reason: {err}"
+        )
+    } else {
+        log_msg!(info, "MPE ending gracefully.")
+    }
+
+    println!("Bye!");
 
     Ok(())
 }

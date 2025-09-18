@@ -6,40 +6,14 @@ use lapin::{
     options::{BasicAckOptions, BasicConsumeOptions, BasicRejectOptions},
     types::FieldTable,
 };
-use serde::{Deserialize, Serialize};
 
-use crate::{config::Config, log_msg, processor::processor::TaskHandler};
+use crate::{config::Config, log_msg, processor::processor::TaskHandler, tasks::ProcessTask};
 
 const DEFAULT_CONSUMER_TAG: &'static str = "unique_mpe_worker";
 
 pub struct RabbitConnection {
     consumer: Consumer,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "type")]
-pub enum ProcessTask<'a> {
-    Composed {
-        job_id: &'a str,
-        medias_to_process: Vec<Media<'a>>,
-    },
-    Unique {
-        attached_job: &'a str,
-        media_to_process: Media<'a>,
-    },
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum MediaType {
-    Video,
-    Image,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Media<'a> {
-    pub id: i32,
-    pub filepath: &'a str,
-    pub media_type: MediaType,
+    config: Config,
 }
 
 impl RabbitConnection {
@@ -67,7 +41,7 @@ impl RabbitConnection {
     /// let config = Config::load()?;
     /// let connection = RabbitConnection::establish_conn(&config).await?;
     /// ```
-    pub async fn establish_conn(config: &Config) -> Result<Self> {
+    pub async fn establish_conn(config: Config) -> Result<Self> {
         log_msg!(
             debug,
             "Trying to establish to RabbitMQ server with {}",
@@ -91,7 +65,7 @@ impl RabbitConnection {
             )
             .await?;
 
-        Ok(Self { consumer })
+        Ok(Self { consumer, config })
     }
 
     async fn next_message(&mut self) -> Result<Option<Delivery>> {
@@ -168,13 +142,22 @@ impl RabbitConnection {
                         continue;
                     };
 
-                    if let Err(unprocessed) = TaskHandler::it(process_task) {
+                    if let Err(unprocessed) = TaskHandler::it(process_task, &self.config) {
                         // try_process_again
+                    } else {
+                        tokio::spawn(async move { ack_message(&delivery).await });
                     };
                 }
-                Ok(None) => {}
+                Ok(None) => {
+                    log_msg!(
+                        info,
+                        "Consumer Stream has Ended by someone. Exiting gracefully"
+                    );
+                    return Ok(());
+                }
                 Err(err) => {
-                    log_msg!(error, "Error while trying to receive next message: {err}")
+                    log_msg!(error, "Error while trying to receive next message: {err}");
+                    return Err(err);
                 }
             }
         }
