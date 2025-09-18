@@ -12,6 +12,7 @@ mod tasks;
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    setup_config();
     setup_log();
 
     // Load configuration from command line arguments and environment variables
@@ -54,4 +55,17 @@ fn setup_log() {
         .env()
         .init()
         .expect("Unexpected logger error.");
+}
+
+fn setup_config() -> Result<Config> {
+    let cfg = Config::load()?;
+
+    // SAFETY:
+    // This function is only executed in single thread stage.
+    unsafe {
+        std::env::set_var("FFMPEG_THREADS", cfg.threads.to_string());
+        std::env::set_var("WORKER_THREADS", cfg.workers.to_string());
+    }
+
+    Ok(cfg)
 }
