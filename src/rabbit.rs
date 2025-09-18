@@ -151,7 +151,7 @@ impl RabbitConnection {
                 Ok(None) => {
                     log_msg!(
                         info,
-                        "Consumer Stream has Ended by someone. Exiting gracefully"
+                        "Consumer stream has ended by someone. Exiting gracefully"
                     );
                     return Ok(());
                 }
