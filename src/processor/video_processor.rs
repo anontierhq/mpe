@@ -25,6 +25,13 @@ impl MediaProcessor for VideoProcessor {
             media.filepath
         );
 
+        if let Err(err) = check_for_file_errors(&tx, media) {
+            log_msg!(error, "Error while checking media with path '{}' integrity. Error: {}", media.filepath, err)
+            // send error back in tx and return media
+        } else {
+            log_msg!(info, "Error checking on media with path '{}' occured well.", media.filepath)
+        } 
+
         Ok(())
     }
 }
