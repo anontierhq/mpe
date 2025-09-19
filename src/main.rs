@@ -2,7 +2,7 @@ use anyhow::{Result, bail};
 use simple_logger::SimpleLogger;
 
 use crate::config::Config;
-use crate::consts::{MPE_THREADS, MPE_WORKERS};
+use crate::consts::{MPE_THREADS, MPE_WORKERS, WATERMARKED_OUTPUT};
 use crate::rabbit::RabbitConnection;
 
 mod config;
@@ -67,6 +67,13 @@ fn setup_config() -> Result<Config> {
     unsafe {
         std::env::set_var(MPE_THREADS, cfg.threads.to_string());
         std::env::set_var(MPE_WORKERS, cfg.workers.to_string());
+        std::env::set_var(
+            WATERMARKED_OUTPUT,
+            cfg.output
+                .to_str()
+                .and_then(|v| Some(v.to_string()))
+                .expect("Output not defined to a valid string!"),
+        );
     }
 
     Ok(cfg)
