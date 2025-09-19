@@ -6,6 +6,7 @@ use lapin::{
     options::{BasicAckOptions, BasicConsumeOptions, BasicRejectOptions},
     types::FieldTable,
 };
+use redis::aio::MultiplexedConnection;
 
 use crate::{config::Config, log_msg, processor::processor::TaskHandler, tasks::ProcessTask};
 
@@ -14,6 +15,7 @@ const DEFAULT_CONSUMER_TAG: &'static str = "unique_mpe_worker";
 pub struct RabbitConnection {
     consumer: Consumer,
     config: Config,
+    redis_connection: MultiplexedConnection,
 }
 
 impl RabbitConnection {
@@ -65,7 +67,15 @@ impl RabbitConnection {
             )
             .await?;
 
-        Ok(Self { consumer, config })
+        let redis = redis::Client::open(&config.redis_addr[..])?;
+        let redis_connection = redis.get_multiplexed_async_connection().await?;
+        log_msg!(info, "Connected sucessfully to redis");
+
+        Ok(Self {
+            consumer,
+            config,
+            redis_connection,
+        })
     }
 
     async fn next_message(&mut self) -> Result<Option<Delivery>> {
@@ -142,7 +152,9 @@ impl RabbitConnection {
                         continue;
                     };
 
-                    if let Err(unprocessed) = TaskHandler::it(process_task, &self.config) {
+                    if let Err(unprocessed) =
+                        TaskHandler::it(process_task, &self.config, &self.redis_connection)
+                    {
                         // try_process_again
                     } else {
                         tokio::spawn(async move { ack_message(&delivery).await });

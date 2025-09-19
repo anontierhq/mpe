@@ -1,5 +1,3 @@
-use std::path::Path;
-
 use anyhow::{Result, bail};
 use clap::Parser;
 
@@ -8,6 +6,7 @@ use crate::log_msg;
 
 const AMQP_ADDR_DEFAULT_VALUE: &'static str = "amqp://127.0.0.1:5672/%2f";
 const MPE_DEFAULT_CONSUMER_QUEUE: &'static str = "mpe_default_queue";
+const REDIS_DEFAULT_ADDR_VALUE: &'static str = "redis://127.0.0.1:6379";
 const MPE_DEFAULT_WORKERS_VALUE: &'static str = "1";
 const MPE_DEFAULT_THREADS_VALUES: &'static str = "4";
 
@@ -42,6 +41,9 @@ pub struct Config {
     /// Number of threads per worker
     #[arg(short, long, env = MPE_THREADS, default_value = MPE_DEFAULT_THREADS_VALUES)]
     pub threads: u64,
+
+    #[arg(short, long, env = REDIS_ADDR, default_value = REDIS_DEFAULT_ADDR_VALUE)]
+    pub redis_addr: String,
 }
 
 impl Config {

@@ -2,6 +2,7 @@ use std::process::Output;
 
 use std::{path::Path, process::Command, sync::mpsc::Sender};
 
+use anyhow::bail;
 use indoc::indoc;
 
 use crate::{
@@ -15,14 +16,14 @@ const ALLOWED_FORMATS: [&'static str; 5] = ["mp4", "avi", "mkv", "mov", "webm"];
 pub struct VideoProcessor;
 
 impl MediaProcessor for VideoProcessor {
-    fn process_media<'m>(
+    fn process_media(
         &self,
-        media: &'m Media,
+        media: &Media,
         tx: std::sync::mpsc::Sender<super::processor::ProcessMessage>,
-    ) -> anyhow::Result<(), &'m Media> {
+    ) -> anyhow::Result<()> {
         log_msg!(
             info,
-            "[START] Processing video id: {}, path: {}",
+            "Processing video id: {}, path: {}",
             media.id,
             media.filepath
         );
@@ -36,15 +37,16 @@ impl MediaProcessor for VideoProcessor {
         if let Err(err) = check_for_file_errors(&tx, media) {
             log_msg!(
                 error,
-                "[FAIL] Integrity check failed for '{}'. Error: {}",
+                "Integrity check failed for '{}'. Error: {}",
                 media.filepath,
                 err
             );
-            // send error back in tx and return media
+            send_error_message(&tx, err.clone(), media.id);
+            bail!("Founded errors on media {}. Error: {err}", media.id)
         } else {
             log_msg!(
                 info,
-                "[OK] Video integrity check passed for '{}'",
+                "Video integrity check passed for '{}'",
                 media.filepath
             );
         }
@@ -171,15 +173,35 @@ fn send_processing_message(tx: &Sender<ProcessMessage>, content: String, media_i
         media_id,
         content
     );
-    if let Err(e) = tx.send(ProcessMessage {
-        media_id: media_id as i32,
+    if let Err(err) = tx.send(ProcessMessage {
+        media_id: media_id,
         m_type: ProcessMessageType::Processing(content),
     }) {
         log_msg!(
             error,
             "Failed to send processing message for media id {}: {}",
             media_id,
-            e
+            err
+        );
+    }
+}
+
+fn send_error_message(tx: &Sender<ProcessMessage>, content: String, media_id: u64) {
+    log_msg!(
+        debug,
+        "Sending error message for media_id {}: {}",
+        media_id,
+        content
+    );
+    if let Err(err) = tx.send(ProcessMessage {
+        media_id: media_id,
+        m_type: ProcessMessageType::Failed(content),
+    }) {
+        log_msg!(
+            error,
+            "Failed to send error message for media id {}: {}",
+            media_id,
+            err
         );
     }
 }
