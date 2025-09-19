@@ -1,4 +1,4 @@
-use std::{fmt::format, path::Path, process::Command, sync::mpsc::Sender};
+use std::{path::Path, process::Command, sync::mpsc::Sender};
 
 use indoc::indoc;
 
