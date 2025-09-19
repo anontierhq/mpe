@@ -13,49 +13,49 @@ use tokio::runtime::Handle;
 
 use crate::{
     config::Config,
+    jobs::{ProcessJob, Task, TaskType},
     log_msg,
     processor::{image_processor::ImageProcessor, video_processor::VideoProcessor},
-    tasks::{Media, MediaType, ProcessTask},
 };
 
-pub(super) trait MediaProcessor {
-    fn process_media(&self, media: &Media, tx: Sender<ProcessMessage>) -> Result<()>;
+pub(super) trait TaskProcessor {
+    fn process_task(&self, task: &Task, tx: Sender<ProcessMessage>) -> Result<()>;
 }
 pub(super) struct ProcessMessage {
-    pub media_id: u64,
-    pub m_type: ProcessMessageType,
+    pub task_id: u64,
+    pub m_type: TaskMessageType,
 }
 
-pub(super) enum ProcessMessageType {
+pub(super) enum TaskMessageType {
     Processing(String),
     Failed(String),
     Finished,
 }
 
-pub struct TaskHandler;
+pub struct JobHandler;
 
-impl TaskHandler {
+impl JobHandler {
     pub fn it<'a>(
-        task: ProcessTask<'a>,
+        job: ProcessJob<'a>,
         config: &'a Config,
         redis_conn: &MultiplexedConnection,
-    ) -> Result<(), Vec<Media>> {
-        match task {
-            ProcessTask::Composed {
+    ) -> Result<(), Vec<Task>> {
+        match job {
+            ProcessJob::Composed {
                 job_id,
-                medias_to_process,
-            } => process_multiple_medias(job_id, medias_to_process, config, redis_conn),
-            ProcessTask::Unique { .. } => todo!(),
+                tasks_to_process,
+            } => process_multiple_tasks(job_id, tasks_to_process, config, redis_conn),
+            ProcessJob::Unique { .. } => todo!(),
         }
     }
 }
 
-fn process_multiple_medias(
-    task_id: &str,
-    medias: Vec<Media>,
+fn process_multiple_tasks(
+    job_id: &str,
+    tasks: Vec<Task>,
     config: &Config,
     redis_conn: &MultiplexedConnection,
-) -> Result<(), Vec<Media>> {
+) -> Result<(), Vec<Task>> {
     let poll = ThreadPool::new(config.workers as usize);
     let (tx, rx) = channel();
     let handler = Handle::current();
@@ -65,22 +65,19 @@ fn process_multiple_medias(
     // is cheaply cloneable and can be used safely from multiple threads, so a single connection
     // can be easily reused"
     let redis_conn = redis_conn.clone();
-    let task_id = task_id.to_string();
+    let job_id = job_id.to_string();
     thread::spawn(move || {
         let mut iter: Iter<'_, ProcessMessage> = rx.iter();
 
-        while let Some(ProcessMessage { media_id, m_type }) = iter.next() {
-            log_msg!(
-                debug,
-                "Received process message to handle. Media id {media_id}"
-            );
-            let mut redis_conn_clone = redis_conn.clone();
-            let task_id = task_id.clone();
+        while let Some(ProcessMessage { task_id, m_type }) = iter.next() {
+            log_msg!(debug, "Received process message to handle. Task {task_id}");
+            let mut redis_conn = redis_conn.clone();
+            let job_id = job_id.clone();
             match m_type {
-                ProcessMessageType::Processing(message) => handler.spawn(async move {
+                TaskMessageType::Processing(message) => handler.spawn(async move {
                     log_msg!(debug, "Received processing message: {message}");
-                    if let Err(err) = redis_conn_clone
-                        .set(&format!("task:{task_id}:media:{}", media_id), message)
+                    if let Err(err) = redis_conn
+                        .set(&format!("job:{job_id}:task:{}", task_id), message)
                         .await
                         .map(|_: ()| ())
                     {
@@ -90,10 +87,10 @@ fn process_multiple_medias(
                         )
                     };
                 }),
-                ProcessMessageType::Failed(message) => handler.spawn(async move {
+                TaskMessageType::Failed(message) => handler.spawn(async move {
                     log_msg!(debug, "Received failed message: {message}");
-                    if let Err(err) = redis_conn_clone
-                        .set(&format!("task:{task_id}:media:{}", media_id), message)
+                    if let Err(err) = redis_conn
+                        .set(&format!("job:{job_id}:task:{}", task_id), message)
                         .await
                         .map(|_: ()| ())
                     {
@@ -103,7 +100,7 @@ fn process_multiple_medias(
                         )
                     };
                 }),
-                ProcessMessageType::Finished => todo!(),
+                TaskMessageType::Finished => todo!(),
             };
         }
 
@@ -113,26 +110,26 @@ fn process_multiple_medias(
         );
     });
 
-    let failed_medias = Arc::new(Mutex::new(vec![]));
-    for media in medias {
-        let processor = get_media_processor(&media.media_type);
+    let failed_tasks = Arc::new(Mutex::new(vec![]));
+    for task in tasks {
+        let processor = get_task_processor(&task.task_type);
         let tx_clone = tx.clone();
 
-        let failed_medias_mutex = failed_medias.clone();
+        let failed_tasks_mutex = failed_tasks.clone();
         poll.execute(move || {
-            let media = media;
-            match processor.process_media(&media, tx_clone) {
+            let task = task;
+            match processor.process_task(&task, tx_clone) {
                 Err(err) => {
                     log_msg!(
                         error,
-                        "Error while processing media {}. Error: {}",
-                        media.id,
+                        "Error while processing task {}. Error: {}",
+                        task.id,
                         err
                     );
-                    failed_medias_mutex
+                    failed_tasks_mutex
                         .lock()
                         .expect("Poisoned lock found!")
-                        .push(media)
+                        .push(task)
                 }
                 _ => {}
             }
@@ -147,20 +144,20 @@ fn process_multiple_medias(
     // Wait for all threads be completed
     poll.join();
 
-    let mut failed_medias = failed_medias.lock().expect("Poisoned lock found!");
-    if !failed_medias.is_empty() {
-        let failed_medias = failed_medias.drain(..).collect::<Vec<Media>>();
-        log_msg!(debug, "Failed medias: {:?}", failed_medias);
+    let mut failed_tasks = failed_tasks.lock().expect("Poisoned lock found!");
+    if !failed_tasks.is_empty() {
+        let failed_tasks = failed_tasks.drain(..).collect::<Vec<Task>>();
+        log_msg!(debug, "Failed tasks: {:?}", failed_tasks);
 
-        return Err(failed_medias);
+        return Err(failed_tasks);
     }
 
     Ok(())
 }
 
-fn get_media_processor(m_type: &MediaType) -> Box<dyn MediaProcessor + Send + Sync> {
+fn get_task_processor(m_type: &TaskType) -> Box<dyn TaskProcessor + Send + Sync> {
     match m_type {
-        MediaType::Video => Box::new(VideoProcessor),
-        MediaType::Image => Box::new(ImageProcessor),
+        TaskType::Video => Box::new(VideoProcessor),
+        TaskType::Image => Box::new(ImageProcessor),
     }
 }

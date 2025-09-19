@@ -13,7 +13,7 @@ const MPE_DEFAULT_THREADS_VALUES: &'static str = "4";
 /// MPE Configuration
 #[derive(Parser, Debug, Clone)]
 #[command(name = "mpe")]
-#[command(about = "Media Processing Engine")]
+#[command(about = "Task Processing Engine")]
 #[command(version = "0.1.0")]
 pub struct Config {
     /// AMQP server address

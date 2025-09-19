@@ -7,10 +7,10 @@ use crate::rabbit::RabbitConnection;
 
 mod config;
 mod consts;
+mod jobs;
 mod logger;
 mod processor;
 mod rabbit;
-mod tasks;
 
 #[tokio::main]
 async fn main() -> Result<()> {

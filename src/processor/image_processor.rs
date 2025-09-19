@@ -1,11 +1,11 @@
-use crate::{processor::processor::MediaProcessor, tasks::Media};
+use crate::{jobs::Task, processor::processor::TaskProcessor};
 
 pub struct ImageProcessor;
 
-impl MediaProcessor for ImageProcessor {
-    fn process_media(
+impl TaskProcessor for ImageProcessor {
+    fn process_task(
         &self,
-        media: &Media,
+        task: &Task,
         tx: std::sync::mpsc::Sender<super::processor::ProcessMessage>,
     ) -> anyhow::Result<()> {
         Ok(())

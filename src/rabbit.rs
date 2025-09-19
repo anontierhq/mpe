@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Result, bail};
 use futures::StreamExt;
 use lapin::{
     Connection, ConnectionProperties, Consumer,
@@ -6,9 +6,9 @@ use lapin::{
     options::{BasicAckOptions, BasicConsumeOptions, BasicRejectOptions},
     types::FieldTable,
 };
-use redis::aio::MultiplexedConnection;
+use redis::{AsyncCommands, aio::MultiplexedConnection};
 
-use crate::{config::Config, log_msg, processor::processor::TaskHandler, tasks::ProcessTask};
+use crate::{config::Config, jobs::ProcessJob, log_msg, processor::processor::JobHandler};
 
 const DEFAULT_CONSUMER_TAG: &'static str = "unique_mpe_worker";
 
@@ -116,7 +116,7 @@ impl RabbitConnection {
                         delivery.delivery_tag
                     );
 
-                    let process_task = if let Ok(json) = str::from_utf8(&delivery.data[..]) {
+                    let process_job = if let Ok(json) = str::from_utf8(&delivery.data[..]) {
                         match from_json_str(&json) {
                             Ok(r) => r,
                             Err(_) => {
@@ -152,10 +152,21 @@ impl RabbitConnection {
                         continue;
                     };
 
+                    let job_id = get_job_id(&process_job);
                     if let Err(unprocessed) =
-                        TaskHandler::it(process_task, &self.config, &self.redis_connection)
+                        JobHandler::it(process_job, &self.config, &self.redis_connection)
                     {
-                        // try_process_again
+                        if let Err(err) = set_job_status(
+                            &job_id,
+                            format!(
+                                "[ERROR] Error while processing tasks from job {}. Tasks that have errors: {:?}",
+                                job_id, unprocessed
+                            ),
+                            &mut self.redis_connection,
+                        ).await {
+                            log_msg!(error, "Failed to set job {job_id} status to {err}")
+                        };
+                        tokio::spawn(async move { reject_message(&delivery).await });
                     } else {
                         tokio::spawn(async move { ack_message(&delivery).await });
                     };
@@ -176,9 +187,16 @@ impl RabbitConnection {
     }
 }
 
-fn from_json_str(json_str: &str) -> Result<ProcessTask<'_>> {
-    let task = serde_json::from_str(json_str)?;
-    Ok(task)
+fn from_json_str(json_str: &str) -> Result<ProcessJob<'_>> {
+    let job = serde_json::from_str(json_str)?;
+    Ok(job)
+}
+
+fn get_job_id(job: &ProcessJob) -> String {
+    match job {
+        ProcessJob::Composed { job_id, .. } => job_id.to_string(),
+        ProcessJob::Unique { attached_job, .. } => attached_job.to_string(),
+    }
 }
 
 async fn ack_message(delivery: &Delivery) -> Result<()> {
@@ -198,5 +216,22 @@ async fn reject_message(delivery: &Delivery) -> Result<()> {
         delivery.delivery_tag
     );
     delivery.reject(BasicRejectOptions::default()).await?;
+    Ok(())
+}
+
+async fn set_job_status(
+    job_id: &str,
+    status: String,
+    redis: &mut MultiplexedConnection,
+) -> Result<()> {
+    log_msg!(debug, "Setting status of job {job_id} to {status}");
+    if let Err(err) = redis
+        .set(format!("job:{job_id}"), status)
+        .await
+        .map(|_: ()| ())
+    {
+        bail!("Failed to set general status for job {job_id}. Error: {err}");
+    };
+
     Ok(())
 }
