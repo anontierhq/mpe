@@ -147,7 +147,7 @@ fn process_multiple_tasks(
     let mut failed_tasks = failed_tasks.lock().expect("Poisoned lock found!");
     if !failed_tasks.is_empty() {
         let failed_tasks = failed_tasks.drain(..).collect::<Vec<Task>>();
-        log_msg!(debug, "Failed tasks: {:?}", failed_tasks);
+        log_msg!(info, "Failed tasks: {:#?}", failed_tasks);
 
         return Err(failed_tasks);
     }

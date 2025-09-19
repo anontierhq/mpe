@@ -1,9 +1,11 @@
+use std::ffi::OsStr;
 use std::process::Output;
 use std::{path::Path, process::Command, sync::mpsc::Sender};
 
 use anyhow::bail;
 use indoc::indoc;
 
+use crate::consts::MPE_THREADS;
 use crate::{
     jobs::Task,
     log_msg,
@@ -17,11 +19,16 @@ pub struct VideoProcessor;
 struct ProcessingContext<'a> {
     tx: &'a Sender<ProcessMessage>,
     task: &'a Task,
+    ffmpeg_threads: u64,
 }
 
 impl<'a> ProcessingContext<'a> {
-    fn new(tx: &'a Sender<ProcessMessage>, task: &'a Task) -> Self {
-        Self { tx, task }
+    fn new(tx: &'a Sender<ProcessMessage>, task: &'a Task, ffmpeg_threads: u64) -> Self {
+        Self {
+            tx,
+            task,
+            ffmpeg_threads,
+        }
     }
 
     fn send_processing_message(&self, content: &str) {
@@ -60,6 +67,22 @@ impl<'a> ProcessingContext<'a> {
 
     fn send_debug(&self, content: &str) {
         log_msg!(debug, "Task {}: {}", self.task.id, content);
+
+        #[cfg(debug_assertions)]
+        {
+            let message = content.to_string();
+            if let Err(err) = self.tx.send(ProcessMessage {
+                task_id: self.task.id,
+                m_type: TaskMessageType::Failed(message.clone()),
+            }) {
+                log_msg!(
+                    error,
+                    "Failed to send error message for task id {}: {}",
+                    self.task.id,
+                    err
+                );
+            }
+        }
     }
 }
 
@@ -69,7 +92,11 @@ impl TaskProcessor for VideoProcessor {
         task: &Task,
         tx: std::sync::mpsc::Sender<super::processor::ProcessMessage>,
     ) -> anyhow::Result<()> {
-        let context = ProcessingContext::new(&tx, task);
+        let threads = std::env::var(MPE_THREADS)
+            .and_then(|v| Ok(v.parse::<u64>()))
+            .unwrap_or(Ok(1))
+            .unwrap();
+        let context = ProcessingContext::new(&tx, task, threads);
 
         context.send_processing_message("Starting video processing");
         context.send_debug(&format!("Processing video path: {}", task.filepath));
@@ -93,7 +120,25 @@ fn check_for_file_errors(context: &ProcessingContext) -> Result<(), String> {
     context.send_processing_message("Decoding file to check for corruption");
 
     context.send_processing_message("Running FFmpeg integrity check");
-    match build_ffmpeg_integrity_check_command(&context.task.filepath).output() {
+
+    let mut cmd =
+        build_ffmpeg_integrity_check_command(&context.task.filepath, context.ffmpeg_threads);
+
+    // Rustc will want to elide this macro at compile time,
+    // but I don't like the idea of ​​creating an iterator +
+    // conversions just for something that won't even be
+    // called. It's preferable to forcefully suppress it.
+    #[cfg(debug_assertions)]
+    log_msg!(
+        debug,
+        "Running ffmpeg command: {}",
+        cmd.get_args()
+            .map(|str: &OsStr| str.to_str().unwrap_or_else(|| "?"))
+            .collect::<Vec<&str>>()
+            .join(" ")
+    );
+
+    match cmd.output() {
         Ok(output) => {
             if output.status.success() {
                 context.send_processing_message("FFmpeg integrity check passed");
@@ -113,7 +158,7 @@ fn check_for_file_errors(context: &ProcessingContext) -> Result<(), String> {
     }
 }
 
-fn build_ffmpeg_integrity_check_command(base_file: &str) -> Command {
+fn build_ffmpeg_integrity_check_command(base_file: &str, threads: u64) -> Command {
     let mut cmd = Command::new("ffmpeg");
     cmd.arg("-v")
         .arg("error")
@@ -121,6 +166,8 @@ fn build_ffmpeg_integrity_check_command(base_file: &str) -> Command {
         .arg(base_file)
         .arg("-f")
         .arg("null")
+        .arg("-threads")
+        .arg(threads.to_string())
         .arg("-");
     cmd
 }

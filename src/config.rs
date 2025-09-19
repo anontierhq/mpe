@@ -42,6 +42,7 @@ pub struct Config {
     #[arg(short, long, env = MPE_THREADS, default_value = MPE_DEFAULT_THREADS_VALUES)]
     pub threads: u64,
 
+    /// Redis server address
     #[arg(short, long, env = REDIS_ADDR, default_value = REDIS_DEFAULT_ADDR_VALUE)]
     pub redis_addr: String,
 }

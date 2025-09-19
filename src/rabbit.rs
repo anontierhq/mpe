@@ -153,21 +153,40 @@ impl RabbitConnection {
                     };
 
                     let job_id = get_job_id(&process_job);
+                    set_job_status(
+                        &job_id,
+                        format!("[STARTED] Started task processment for job {}...", job_id),
+                        &mut self.redis_connection,
+                    )
+                    .await;
+
                     if let Err(unprocessed) =
                         JobHandler::it(process_job, &self.config, &self.redis_connection)
                     {
-                        if let Err(err) = set_job_status(
+                        set_job_status(
                             &job_id,
                             format!(
-                                "[ERROR] Error while processing tasks from job {}. Tasks that have errors: {:?}",
-                                job_id, unprocessed
+                                "[ERROR] Error while processing tasks from job {}. Tasks that have errors: {}",
+                                job_id,
+                                unprocessed
+                                    .iter()
+                                    .map(|e| format!("id: {}", e.id.to_string()))
+                                    .collect::<Vec<String>>()
+                                    .join(", ")
                             ),
                             &mut self.redis_connection,
-                        ).await {
-                            log_msg!(error, "Failed to set job {job_id} status to {err}")
-                        };
+                        ).await;
                         tokio::spawn(async move { reject_message(&delivery).await });
                     } else {
+                        set_job_status(
+                            &job_id,
+                            format!(
+                                "[FINISHED] Finished gracefully task processment for job {}",
+                                job_id
+                            ),
+                            &mut self.redis_connection,
+                        )
+                        .await;
                         tokio::spawn(async move { ack_message(&delivery).await });
                     };
                 }
@@ -219,19 +238,14 @@ async fn reject_message(delivery: &Delivery) -> Result<()> {
     Ok(())
 }
 
-async fn set_job_status(
-    job_id: &str,
-    status: String,
-    redis: &mut MultiplexedConnection,
-) -> Result<()> {
+async fn set_job_status(job_id: &str, status: String, redis: &mut MultiplexedConnection) {
     log_msg!(debug, "Setting status of job {job_id} to {status}");
-    if let Err(err) = redis
+    match redis
         .set(format!("job:{job_id}"), status)
         .await
         .map(|_: ()| ())
     {
-        bail!("Failed to set general status for job {job_id}. Error: {err}");
-    };
-
-    Ok(())
+        Err(err) => log_msg!(error, "Failed to set job {job_id} status to {err}"),
+        _ => {}
+    }
 }
