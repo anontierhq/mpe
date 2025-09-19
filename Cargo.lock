@@ -1265,14 +1265,11 @@ name = "mpe"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "cfg-if",
  "clap",
  "futures",
- "futures-lite",
  "indoc",
  "lapin",
  "log",
- "rand",
  "serde",
  "serde_json",
  "simple_logger",
