@@ -1,7 +1,15 @@
+use std::path::Path;
+
 use anyhow::{Result, bail};
 use clap::Parser;
 
+use crate::consts::*;
 use crate::log_msg;
+
+const AMQP_ADDR_DEFAULT_VALUE: &'static str = "amqp://127.0.0.1:5672/%2f";
+const MPE_DEFAULT_CONSUMER_QUEUE: &'static str = "mpe_default_queue";
+const MPE_DEFAULT_WORKERS_VALUE: &'static str = "1";
+const MPE_DEFAULT_THREADS_VALUES: &'static str = "4";
 
 /// MPE Configuration
 #[derive(Parser, Debug, Clone)]
@@ -13,8 +21,8 @@ pub struct Config {
     #[arg(
         short,
         long,
-        env = "AMQP_ADDR",
-        default_value = "amqp://127.0.0.1:5672/%2f"
+        env = AMQP_ADDR,
+        default_value = AMQP_ADDR_DEFAULT_VALUE
     )]
     pub addr: String,
 
@@ -22,17 +30,17 @@ pub struct Config {
     #[arg(
         short = 'q',
         long,
-        env = "CONSUMER_QUEUE",
-        default_value = "mpe_default_queue"
+        env = CONSUMER_QUEUE,
+        default_value = MPE_DEFAULT_CONSUMER_QUEUE
     )]
     pub queue: String,
 
     /// Number of worker processes.
-    #[arg(short, long, env = "MPE_WORKERS", default_value = "1")]
+    #[arg(short, long, env = MPE_WORKERS, default_value = MPE_DEFAULT_WORKERS_VALUE)]
     pub workers: u64,
 
     /// Number of threads per worker
-    #[arg(short, long, env = "MPE_THREADS", default_value = "4")]
+    #[arg(short, long, env = MPE_THREADS, default_value = MPE_DEFAULT_THREADS_VALUES)]
     pub threads: u64,
 }
 

@@ -2,9 +2,11 @@ use anyhow::{Result, bail};
 use simple_logger::SimpleLogger;
 
 use crate::config::Config;
+use crate::consts::{MPE_THREADS, MPE_WORKERS};
 use crate::rabbit::RabbitConnection;
 
 mod config;
+mod consts;
 mod logger;
 mod processor;
 mod rabbit;
@@ -12,7 +14,7 @@ mod tasks;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    setup_config();
+    setup_config()?;
     setup_log();
 
     // Load configuration from command line arguments and environment variables
@@ -63,8 +65,8 @@ fn setup_config() -> Result<Config> {
     // SAFETY:
     // This function is only executed in single thread stage.
     unsafe {
-        std::env::set_var("FFMPEG_THREADS", cfg.threads.to_string());
-        std::env::set_var("WORKER_THREADS", cfg.workers.to_string());
+        std::env::set_var(MPE_THREADS, cfg.threads.to_string());
+        std::env::set_var(MPE_WORKERS, cfg.workers.to_string());
     }
 
     Ok(cfg)

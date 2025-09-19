@@ -13,6 +13,7 @@ use tokio::runtime::Handle;
 
 use crate::{
     config::Config,
+    log_msg,
     processor::{image_processor::ImageProcessor, video_processor::VideoProcessor},
     tasks::{Media, MediaType, ProcessTask},
 };
@@ -24,7 +25,16 @@ pub(super) trait MediaProcessor {
         tx: Sender<ProcessMessage>,
     ) -> Result<(), &'m Media>;
 }
-pub(super) struct ProcessMessage;
+pub(super) struct ProcessMessage {
+    pub media_id: i32,
+    pub m_type: ProcessMessageType,
+}
+
+pub(super) enum ProcessMessageType {
+    Processing(String),
+    Failed(String),
+    Finished,
+}
 
 pub struct TaskHandler;
 
@@ -53,6 +63,11 @@ fn process_multiple_medias(medias: Vec<Media>, config: &Config) -> Result<(), Ve
                 // Here we will dispatch the appropriatted messages for redis
             });
         }
+
+        log_msg!(
+            info,
+            "All processing messages have been handled, exiting message handler thread."
+        );
     });
 
     for media in medias {
@@ -65,6 +80,9 @@ fn process_multiple_medias(medias: Vec<Media>, config: &Config) -> Result<(), Ve
         });
     }
 
+    // drop tx to close the channel on main thread
+    // and allow the receiver thread to exit once
+    // all messages are processed
     drop(tx);
 
     Ok(())

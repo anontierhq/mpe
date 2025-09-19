@@ -21,7 +21,7 @@ pub enum MediaType {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Media {
-    pub id: i32,
+    pub id: u64,
     pub filepath: String,
     pub media_type: MediaType,
 }
