@@ -1,3 +1,6 @@
+use std::path::Path;
+use std::path::PathBuf;
+
 use anyhow::{Result, bail};
 use clap::Parser;
 
@@ -18,7 +21,6 @@ const MPE_DEFAULT_THREADS_VALUES: &'static str = "4";
 pub struct Config {
     /// AMQP server address
     #[arg(
-        short,
         long,
         env = AMQP_ADDR,
         default_value = AMQP_ADDR_DEFAULT_VALUE
@@ -27,7 +29,6 @@ pub struct Config {
 
     /// Consumer queue name
     #[arg(
-        short = 'q',
         long,
         env = CONSUMER_QUEUE,
         default_value = MPE_DEFAULT_CONSUMER_QUEUE
@@ -43,8 +44,12 @@ pub struct Config {
     pub threads: u64,
 
     /// Redis server address
-    #[arg(short, long, env = REDIS_ADDR, default_value = REDIS_DEFAULT_ADDR_VALUE)]
+    #[arg(long, env = REDIS_ADDR, default_value = REDIS_DEFAULT_ADDR_VALUE)]
     pub redis_addr: String,
+
+    /// Output folder
+    #[arg(short = 'o', long, env = WATERMARKED_OUTPUT)]
+    pub output: PathBuf,
 }
 
 impl Config {
@@ -76,6 +81,10 @@ impl Config {
 
         if config.workers > 16 {
             log_msg!(warn, "Using more than 16 workers is not recommended.");
+        }
+
+        if !config.output.exists() || !config.output.is_dir() {
+            bail!("Output folder is invalid.")
         }
 
         Ok(config)
