@@ -96,7 +96,10 @@ fn process_multiple_tasks(
             };
         }
 
-        log_msg!(info, "All processing messages handled. Exiting message handler thread.");
+        log_msg!(
+            info,
+            "All processing messages handled. Exiting message handler thread."
+        );
     });
 
     let failed_tasks = Arc::new(Mutex::new(vec![]));

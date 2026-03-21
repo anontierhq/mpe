@@ -86,7 +86,11 @@ impl Worker {
 }
 
 fn parse_delivery(delivery: &lapin::message::Delivery) -> Result<ProcessJob<'_>> {
-    let json = std::str::from_utf8(&delivery.data)?;
+    parse_job_bytes(&delivery.data)
+}
+
+fn parse_job_bytes(data: &[u8]) -> Result<ProcessJob<'_>> {
+    let json = std::str::from_utf8(data)?;
     Ok(serde_json::from_str(json)?)
 }
 
@@ -94,5 +98,65 @@ fn job_id_of(job: &ProcessJob) -> String {
     match job {
         ProcessJob::Composed { job_id, .. } => job_id.to_string(),
         ProcessJob::Unique { attached_job, .. } => attached_job.to_string(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_valid_composed_bytes() {
+        let data = br#"{
+            "type": "Composed",
+            "job_id": "job-42",
+            "tasks_to_process": [
+                { "id": 1, "filepath": "/a.mp4", "task_type": "Video" }
+            ]
+        }"#;
+
+        let job = parse_job_bytes(data).unwrap();
+        assert!(matches!(job, ProcessJob::Composed { job_id: "job-42", .. }));
+    }
+
+    #[test]
+    fn parses_valid_unique_bytes() {
+        let data = br#"{
+            "type": "Unique",
+            "attached_job": "job-99",
+            "task_to_process": { "id": 7, "filepath": "/b.jpg", "task_type": "Image" }
+        }"#;
+
+        let job = parse_job_bytes(data).unwrap();
+        assert!(matches!(job, ProcessJob::Unique { attached_job: "job-99", .. }));
+    }
+
+    #[test]
+    fn fails_on_invalid_utf8() {
+        let data = &[0xFF, 0xFE, 0x00];
+        assert!(parse_job_bytes(data).is_err());
+    }
+
+    #[test]
+    fn fails_on_invalid_json() {
+        assert!(parse_job_bytes(b"not json at all").is_err());
+    }
+
+    #[test]
+    fn job_id_of_composed() {
+        let json = r#"{ "type": "Composed", "job_id": "abc", "tasks_to_process": [] }"#;
+        let job: ProcessJob = serde_json::from_str(json).unwrap();
+        assert_eq!(job_id_of(&job), "abc");
+    }
+
+    #[test]
+    fn job_id_of_unique() {
+        let json = r#"{
+            "type": "Unique",
+            "attached_job": "xyz",
+            "task_to_process": { "id": 1, "filepath": "/f", "task_type": "Video" }
+        }"#;
+        let job: ProcessJob = serde_json::from_str(json).unwrap();
+        assert_eq!(job_id_of(&job), "xyz");
     }
 }
