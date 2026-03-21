@@ -4,7 +4,7 @@ mod video_processor;
 use std::{
     sync::{
         Arc, Mutex,
-        mpsc::{Iter, Sender, channel},
+        mpsc::{Sender, channel},
     },
     thread,
 };
@@ -69,9 +69,7 @@ fn process_multiple_tasks(
     let job_id = job_id.to_string();
 
     thread::spawn(move || {
-        let mut iter: Iter<'_, ProcessMessage> = rx.iter();
-
-        while let Some(ProcessMessage { task_id, m_type }) = iter.next() {
+        for ProcessMessage { task_id, m_type } in rx {
             log_msg!(debug, "Received process message. Task {task_id}");
             let mut redis_conn = redis_conn.clone();
             let job_id = job_id.clone();

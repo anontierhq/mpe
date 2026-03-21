@@ -12,5 +12,3 @@ pub const DEFAULT_WORKERS: &str = "1";
 pub const DEFAULT_THREADS: &str = "4";
 
 pub const DEFAULT_CONSUMER_TAG: &str = "unique_mpe_worker";
-
-pub const ALLOWED_VIDEO_FORMATS: [&str; 5] = ["mp4", "avi", "mkv", "mov", "webm"];
