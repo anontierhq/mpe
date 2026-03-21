@@ -1,4 +1,4 @@
-use anyhow::{Result, bail};
+use anyhow::Result;
 use futures::StreamExt;
 use lapin::{
     Connection, ConnectionProperties, Consumer,
@@ -8,9 +8,10 @@ use lapin::{
 };
 use redis::{AsyncCommands, aio::MultiplexedConnection};
 
-use crate::{config::Config, jobs::ProcessJob, log_msg, processor::processor::JobHandler};
-
-const DEFAULT_CONSUMER_TAG: &'static str = "unique_mpe_worker";
+use crate::{
+    config::Config, constants::DEFAULT_CONSUMER_TAG, jobs::ProcessJob, log_msg,
+    processor::processor::JobHandler,
+};
 
 pub struct RabbitConnection {
     consumer: Consumer,
@@ -117,7 +118,7 @@ impl RabbitConnection {
                     );
 
                     let process_job = if let Ok(json) = str::from_utf8(&delivery.data[..]) {
-                        match from_json_str(&json) {
+                        match from_json_str(json) {
                             Ok(r) => r,
                             Err(_) => {
                                 log_msg!(
@@ -145,7 +146,7 @@ impl RabbitConnection {
                     } else {
                         log_msg!(
                             error,
-                            "Error while trying to parse delivery message to UTF-8 String. 
+                            "Error while trying to parse delivery message to UTF-8 String.
                             Going to the next message round."
                         );
 
@@ -170,7 +171,7 @@ impl RabbitConnection {
                                 job_id,
                                 unprocessed
                                     .iter()
-                                    .map(|e| format!("id: {}", e.id.to_string()))
+                                    .map(|e| format!("id: {}", e.id))
                                     .collect::<Vec<String>>()
                                     .join(", ")
                             ),
@@ -240,12 +241,11 @@ async fn reject_message(delivery: &Delivery) -> Result<()> {
 
 async fn set_job_status(job_id: &str, status: String, redis: &mut MultiplexedConnection) {
     log_msg!(debug, "Setting status of job {job_id} to {status}");
-    match redis
+    if let Err(err) = redis
         .set(format!("job:{job_id}"), status)
         .await
         .map(|_: ()| ())
     {
-        Err(err) => log_msg!(error, "Failed to set job {job_id} status to {err}"),
-        _ => {}
+        log_msg!(error, "Failed to set job {job_id} status to {err}")
     }
 }

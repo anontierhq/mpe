@@ -2,11 +2,11 @@ use anyhow::{Result, bail};
 use simple_logger::SimpleLogger;
 
 use crate::config::Config;
-use crate::consts::{MPE_THREADS, MPE_WORKERS, WATERMARKED_OUTPUT};
+use crate::constants::{MPE_THREADS, MPE_WORKERS, WATERMARKED_OUTPUT};
 use crate::rabbit::RabbitConnection;
 
 mod config;
-mod consts;
+mod constants;
 mod jobs;
 mod logger;
 mod processor;
@@ -71,7 +71,7 @@ fn setup_config() -> Result<Config> {
             WATERMARKED_OUTPUT,
             cfg.output
                 .to_str()
-                .and_then(|v| Some(v.to_string()))
+                .map(|v| v.to_string())
                 .expect("Output not defined to a valid string!"),
         );
     }

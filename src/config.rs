@@ -1,17 +1,10 @@
-use std::path::Path;
 use std::path::PathBuf;
 
 use anyhow::{Result, bail};
 use clap::Parser;
 
-use crate::consts::*;
+use crate::constants::*;
 use crate::log_msg;
-
-const AMQP_ADDR_DEFAULT_VALUE: &'static str = "amqp://127.0.0.1:5672/%2f";
-const MPE_DEFAULT_CONSUMER_QUEUE: &'static str = "mpe_default_queue";
-const REDIS_DEFAULT_ADDR_VALUE: &'static str = "redis://127.0.0.1:6379";
-const MPE_DEFAULT_WORKERS_VALUE: &'static str = "1";
-const MPE_DEFAULT_THREADS_VALUES: &'static str = "4";
 
 /// MPE Configuration
 #[derive(Parser, Debug, Clone)]
@@ -23,7 +16,7 @@ pub struct Config {
     #[arg(
         long,
         env = AMQP_ADDR,
-        default_value = AMQP_ADDR_DEFAULT_VALUE
+        default_value = DEFAULT_AMQP_ADDR
     )]
     pub addr: String,
 
@@ -31,20 +24,20 @@ pub struct Config {
     #[arg(
         long,
         env = CONSUMER_QUEUE,
-        default_value = MPE_DEFAULT_CONSUMER_QUEUE
+        default_value = DEFAULT_CONSUMER_QUEUE
     )]
     pub queue: String,
 
     /// Number of worker processes.
-    #[arg(short, long, env = MPE_WORKERS, default_value = MPE_DEFAULT_WORKERS_VALUE)]
+    #[arg(short, long, env = MPE_WORKERS, default_value = DEFAULT_WORKERS)]
     pub workers: u64,
 
     /// Number of threads per worker
-    #[arg(short, long, env = MPE_THREADS, default_value = MPE_DEFAULT_THREADS_VALUES)]
+    #[arg(short, long, env = MPE_THREADS, default_value = DEFAULT_THREADS)]
     pub threads: u64,
 
     /// Redis server address
-    #[arg(long, env = REDIS_ADDR, default_value = REDIS_DEFAULT_ADDR_VALUE)]
+    #[arg(long, env = REDIS_ADDR, default_value = DEFAULT_REDIS_ADDR)]
     pub redis_addr: String,
 
     /// Output folder
@@ -56,11 +49,11 @@ impl Config {
     pub fn load() -> Result<Self> {
         let config = Config::parse();
 
-        if config.workers <= 0 {
+        if config.workers == 0 {
             bail!("Workers must be greater than 0");
         }
 
-        if config.threads <= 0 {
+        if config.threads == 0 {
             bail!("Threads must be greater than 0");
         }
 

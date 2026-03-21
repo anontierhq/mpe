@@ -77,7 +77,7 @@ fn process_multiple_tasks(
                 TaskMessageType::Processing(message) => handler.spawn(async move {
                     log_msg!(debug, "Received processing message: {message}");
                     if let Err(err) = redis_conn
-                        .set(&format!("job:{job_id}:task:{}", task_id), message)
+                        .set(format!("job:{job_id}:task:{}", task_id), message)
                         .await
                         .map(|_: ()| ())
                     {
@@ -90,7 +90,7 @@ fn process_multiple_tasks(
                 TaskMessageType::Failed(message) => handler.spawn(async move {
                     log_msg!(debug, "Received failed message: {message}");
                     if let Err(err) = redis_conn
-                        .set(&format!("job:{job_id}:task:{}", task_id), message)
+                        .set(format!("job:{job_id}:task:{}", task_id), message)
                         .await
                         .map(|_: ()| ())
                     {
@@ -117,21 +117,17 @@ fn process_multiple_tasks(
 
         let failed_tasks_mutex = failed_tasks.clone();
         poll.execute(move || {
-            let task = task;
-            match processor.process_task(&task, tx_clone) {
-                Err(err) => {
-                    log_msg!(
-                        error,
-                        "Error while processing task {}. Error: {}",
-                        task.id,
-                        err
-                    );
-                    failed_tasks_mutex
-                        .lock()
-                        .expect("Poisoned lock found!")
-                        .push(task)
-                }
-                _ => {}
+            if let Err(err) = processor.process_task(&task, tx_clone) {
+                log_msg!(
+                    error,
+                    "Error while processing task {}. Error: {}",
+                    task.id,
+                    err
+                );
+                failed_tasks_mutex
+                    .lock()
+                    .expect("Poisoned lock found!")
+                    .push(task)
             }
         });
     }

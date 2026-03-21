@@ -5,8 +5,8 @@ pub struct ImageProcessor;
 impl TaskProcessor for ImageProcessor {
     fn process_task(
         &self,
-        task: &Task,
-        tx: std::sync::mpsc::Sender<super::processor::ProcessMessage>,
+        _task: &Task,
+        _tx: std::sync::mpsc::Sender<super::processor::ProcessMessage>,
     ) -> anyhow::Result<()> {
         Ok(())
     }
