@@ -1,9 +1,7 @@
 use std::sync::mpsc::Sender;
 
-use crate::{
-    jobs::Task,
-    processor::processor::{ProcessMessage, TaskProcessor},
-};
+use crate::jobs::Task;
+use super::{ProcessMessage, TaskProcessor};
 
 pub struct VideoProcessor;
 
