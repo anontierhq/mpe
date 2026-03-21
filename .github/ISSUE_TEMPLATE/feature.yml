@@ -1,0 +1,26 @@
+name: Feature
+description: Suggest or request a new feature
+title: "[FEAT]: "
+labels: ["enhancement"]
+
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Describe the feature or capability.
+      placeholder: Explain what should be added or implemented
+    validations:
+      required: true
+
+  - type: textarea
+    id: idea
+    attributes:
+      label: Possible implementation
+      placeholder: How could this be implemented?
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      placeholder: Links, examples, screenshots, etc

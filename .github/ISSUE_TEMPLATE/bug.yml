@@ -1,0 +1,35 @@
+name: Bug Report
+description: Report something that is not working
+title: "[BUG]: "
+labels: ["bug"]
+
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What is the problem?
+      placeholder: Describe the bug clearly
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Do this
+        2. Then this
+        3. The bug happens
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      placeholder: What should have happened?
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Extra context
+      placeholder: Pictures, links, screenshots, logs, etc
