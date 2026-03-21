@@ -1,5 +1,6 @@
 mod image_processor;
-mod video_processor;
+mod pipeline;
+mod video;
 
 use std::{
     sync::{
@@ -20,10 +21,10 @@ use crate::{
     log_msg,
 };
 
-use self::{image_processor::ImageProcessor, video_processor::VideoProcessor};
+use self::{image_processor::ImageProcessor, video::VideoProcessor};
 
 pub(crate) trait TaskProcessor {
-    fn process_task(&self, task: &Task, tx: Sender<ProcessMessage>) -> Result<()>;
+    fn process_task(&self, job_id: &str, task: &Task, tx: Sender<ProcessMessage>) -> Result<()>;
 }
 
 pub(crate) struct ProcessMessage {
@@ -31,6 +32,7 @@ pub(crate) struct ProcessMessage {
     pub m_type: TaskMessageType,
 }
 
+#[allow(dead_code)]
 pub(crate) enum TaskMessageType {
     Processing(String),
     Failed(String),
@@ -61,14 +63,16 @@ fn process_multiple_tasks(
     config: &Config,
     redis_conn: &MultiplexedConnection,
 ) -> Result<(), Vec<Task>> {
-    let poll = ThreadPool::new(config.workers as usize);
+    let pool = ThreadPool::new(config.workers as usize);
     let (tx, rx) = channel();
     let handler = Handle::current();
     // MultiplexedConnection is cheaply cloneable and safe across threads (see redis docs)
     let redis_conn = redis_conn.clone();
     let job_id = job_id.to_string();
+    let job_id_for_status = job_id.clone();
 
     thread::spawn(move || {
+        let job_id = job_id_for_status;
         for ProcessMessage { task_id, m_type } in rx {
             log_msg!(debug, "Received process message. Task {task_id}");
             let mut redis_conn = redis_conn.clone();
@@ -105,9 +109,10 @@ fn process_multiple_tasks(
         let processor = get_task_processor(&task.task_type);
         let tx_clone = tx.clone();
         let failed_tasks_mutex = failed_tasks.clone();
+        let job_id_clone = job_id.clone();
 
-        poll.execute(move || {
-            if let Err(err) = processor.process_task(&task, tx_clone) {
+        pool.execute(move || {
+            if let Err(err) = processor.process_task(&job_id_clone, &task, tx_clone) {
                 log_msg!(error, "Error processing task {}. Error: {}", task.id, err);
                 failed_tasks_mutex
                     .lock()
@@ -118,7 +123,7 @@ fn process_multiple_tasks(
     }
 
     drop(tx);
-    poll.join();
+    pool.join();
 
     let mut failed_tasks = failed_tasks.lock().expect("Poisoned lock found!");
     if !failed_tasks.is_empty() {
