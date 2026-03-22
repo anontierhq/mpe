@@ -18,11 +18,10 @@ async fn main() -> Result<()> {
     let config = Config::load()?;
     log_msg!(
         debug,
-        "AMQP: {}, Queue: {}, Workers: {}, Threads: {}",
+        "AMQP: {}, Queue: {}, Workers: {}",
         config.addr,
         config.queue,
-        config.workers,
-        config.threads
+        config.workers
     );
 
     let mut worker = Worker::new(config).await?;

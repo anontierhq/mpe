@@ -7,6 +7,7 @@ pub enum ProcessJob<'a> {
     Composed {
         job_id: &'a str,
         tasks_to_process: Vec<Task>,
+        base_output: Option<String>,
     },
     Unique {
         attached_job: &'a str,
@@ -25,6 +26,7 @@ pub struct Task {
     pub id: u64,
     pub filepath: String,
     pub task_type: TaskType,
+    pub output_path: Option<String>,
 }
 
 #[cfg(test)]
@@ -45,7 +47,11 @@ mod tests {
         let job: ProcessJob = serde_json::from_str(json).unwrap();
 
         match job {
-            ProcessJob::Composed { job_id, tasks_to_process } => {
+            ProcessJob::Composed {
+                job_id,
+                tasks_to_process,
+                ..
+            } => {
                 assert_eq!(job_id, "job-001");
                 assert_eq!(tasks_to_process.len(), 2);
                 assert_eq!(tasks_to_process[0].id, 1);
@@ -68,7 +74,10 @@ mod tests {
         let job: ProcessJob = serde_json::from_str(json).unwrap();
 
         match job {
-            ProcessJob::Unique { attached_job, task_to_process } => {
+            ProcessJob::Unique {
+                attached_job,
+                task_to_process,
+            } => {
                 assert_eq!(attached_job, "job-001");
                 assert_eq!(task_to_process.id, 3);
                 assert!(matches!(task_to_process.task_type, TaskType::Video));
