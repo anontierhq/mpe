@@ -8,6 +8,7 @@ impl TaskProcessor for ImageProcessor {
         &self,
         _job_id: &str,
         _task: &Task,
+        _output_path: std::path::PathBuf,
         _tx: std::sync::mpsc::Sender<ProcessMessage>,
     ) -> anyhow::Result<()> {
         Ok(())

@@ -8,6 +8,7 @@ pub(crate) struct PipelineContext<'a> {
     pub job_id: &'a str,
     pub task_id: u64,
     pub work_dir: PathBuf,
+    pub output_path: PathBuf,
     tx: &'a Sender<ProcessMessage>,
 }
 
@@ -16,12 +17,14 @@ impl<'a> PipelineContext<'a> {
         job_id: &'a str,
         task_id: u64,
         work_dir: PathBuf,
+        output_path: PathBuf,
         tx: &'a Sender<ProcessMessage>,
     ) -> Self {
         Self {
             job_id,
             task_id,
             work_dir,
+            output_path,
             tx,
         }
     }

@@ -2,7 +2,6 @@ pub const AMQP_ADDR: &str = "AMQP_ADDR";
 pub const CONSUMER_QUEUE: &str = "CONSUMER_QUEUE";
 pub const MPE_WORKERS: &str = "MPE_WORKERS";
 pub const REDIS_ADDR: &str = "REDIS_ADDR";
-pub const WATERMARKED_OUTPUT: &str = "WATERMARK_OUTPUT";
 
 pub const DEFAULT_AMQP_ADDR: &str = "amqp://127.0.0.1:5672/%2f";
 pub const DEFAULT_CONSUMER_QUEUE: &str = "mpe_default_queue";

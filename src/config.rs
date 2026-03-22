@@ -1,5 +1,3 @@
-use std::path::PathBuf;
-
 use anyhow::{Result, bail};
 use clap::Parser;
 
@@ -35,10 +33,6 @@ pub struct Config {
     /// Redis server address
     #[arg(long, env = REDIS_ADDR, default_value = DEFAULT_REDIS_ADDR)]
     pub redis_addr: String,
-
-    /// Output folder
-    #[arg(short = 'o', long, env = WATERMARKED_OUTPUT)]
-    pub output: PathBuf,
 }
 
 impl Config {
@@ -59,10 +53,6 @@ impl Config {
 
         if config.workers > 16 {
             log_msg!(warn, "Using more than 16 workers is not recommended.");
-        }
-
-        if !config.output.exists() || !config.output.is_dir() {
-            bail!("Output folder is invalid.")
         }
 
         Ok(config)

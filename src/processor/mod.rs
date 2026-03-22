@@ -1,17 +1,18 @@
 mod image_processor;
-mod pipeline;
+pub mod pipeline;
 mod video;
 
 use std::{
+    path::PathBuf,
     sync::{
+        mpsc::{channel, Sender},
         Arc, Mutex,
-        mpsc::{Sender, channel},
     },
     thread,
 };
 
-use anyhow::Result;
-use redis::{AsyncCommands, aio::MultiplexedConnection};
+use anyhow::{anyhow, Result};
+use redis::{aio::MultiplexedConnection, AsyncCommands};
 use threadpool::ThreadPool;
 use tokio::runtime::Handle;
 
@@ -24,7 +25,13 @@ use crate::{
 use self::{image_processor::ImageProcessor, video::VideoProcessor};
 
 pub(crate) trait TaskProcessor {
-    fn process_task(&self, job_id: &str, task: &Task, tx: Sender<ProcessMessage>) -> Result<()>;
+    fn process_task(
+        &self,
+        job_id: &str,
+        task: &Task,
+        output_path: PathBuf,
+        tx: Sender<ProcessMessage>,
+    ) -> Result<()>;
 }
 
 pub(crate) struct ProcessMessage {
@@ -51,15 +58,42 @@ impl JobHandler {
             ProcessJob::Composed {
                 job_id,
                 tasks_to_process,
-            } => process_multiple_tasks(job_id, tasks_to_process, config, redis_conn),
+                base_output,
+            } => process_multiple_tasks(
+                job_id,
+                tasks_to_process,
+                base_output.as_deref(),
+                config,
+                redis_conn,
+            ),
             ProcessJob::Unique { .. } => todo!(),
         }
+    }
+}
+
+fn resolve_output_path(
+    job_id: &str,
+    task: &Task,
+    base_output: Option<&str>,
+) -> Result<PathBuf> {
+    match (&task.output_path, base_output) {
+        (Some(_), Some(_)) => Err(anyhow!(
+            "Task {} specifies both output_path and job base_output — use one or the other",
+            task.id
+        )),
+        (Some(path), None) => Ok(PathBuf::from(path)),
+        (None, Some(base)) => Ok(PathBuf::from(base).join(job_id).join(task.id.to_string())),
+        (None, None) => Err(anyhow!(
+            "Task {} has no output path — set output_path on the task or base_output on the job",
+            task.id
+        )),
     }
 }
 
 fn process_multiple_tasks(
     job_id: &str,
     tasks: Vec<Task>,
+    base_output: Option<&str>,
     config: &Config,
     redis_conn: &MultiplexedConnection,
 ) -> Result<(), Vec<Task>> {
@@ -106,13 +140,25 @@ fn process_multiple_tasks(
 
     let failed_tasks = Arc::new(Mutex::new(vec![]));
     for task in tasks {
+        let output_path = match resolve_output_path(&job_id, &task, base_output) {
+            Ok(p) => p,
+            Err(err) => {
+                log_msg!(error, "Output path error for task {}: {}", task.id, err);
+                failed_tasks
+                    .lock()
+                    .expect("Poisoned lock found!")
+                    .push(task);
+                continue;
+            }
+        };
+
         let processor = get_task_processor(&task.task_type);
         let tx_clone = tx.clone();
         let failed_tasks_mutex = failed_tasks.clone();
         let job_id_clone = job_id.clone();
 
         pool.execute(move || {
-            if let Err(err) = processor.process_task(&job_id_clone, &task, tx_clone) {
+            if let Err(err) = processor.process_task(&job_id_clone, &task, output_path, tx_clone) {
                 log_msg!(error, "Error processing task {}. Error: {}", task.id, err);
                 failed_tasks_mutex
                     .lock()
