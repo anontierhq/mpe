@@ -72,18 +72,32 @@ impl JobHandler {
 }
 
 fn resolve_output_path(job_id: &str, task: &Task, base_output: Option<&str>) -> Result<PathBuf> {
-    match (&task.output_path, base_output) {
-        (Some(_), Some(_)) => Err(anyhow!(
-            "Task {} specifies both output_path and job base_output — use one or the other",
+    let path = match (&task.output_path, base_output) {
+        (Some(_), Some(_)) => return Err(anyhow!(
+            "Task {} specifies both output_path and job base_output: Use one or the other",
             task.id
         )),
-        (Some(path), None) => Ok(PathBuf::from(path)),
-        (None, Some(base)) => Ok(PathBuf::from(base).join(job_id).join(task.id.to_string())),
-        (None, None) => Err(anyhow!(
-            "Task {} has no output path — set output_path on the task or base_output on the job",
+        (Some(path), None) => PathBuf::from(path),
+        (None, Some(base)) => PathBuf::from(base).join(job_id).join(task.id.to_string()),
+        (None, None) => return Err(anyhow!(
+            "Task {} has no output path. Set output_path on the task or base_output on the job",
             task.id
         )),
+    };
+
+    if path.as_os_str().is_empty() {
+        return Err(anyhow!("Task {} output path is empty", task.id));
     }
+
+    if !path.is_absolute() {
+        return Err(anyhow!(
+            "Task {} output path '{}' must be absolute",
+            task.id,
+            path.display()
+        ));
+    }
+
+    Ok(path)
 }
 
 fn process_multiple_tasks(
