@@ -34,10 +34,14 @@ impl Step<PackagedOutput, ()> for PersistStep {
             })?;
         }
 
-        fs::create_dir_all(&ctx.output_path)?;
+        // Create only the parent so rename can move the source dir into place.
+        if let Some(parent) = ctx.output_path.parent() {
+            fs::create_dir_all(parent)?;
+        }
 
-        // prefer rename. Falls back to copy+delete if EXDEV
+        // prefer rename (same filesystem, instant). Falls back to copy+delete if EXDEV.
         if fs::rename(&input.output_dir, &ctx.output_path).is_err() {
+            fs::create_dir_all(&ctx.output_path)?;
             copy_dir(&input.output_dir, &ctx.output_path)?;
             fs::remove_dir_all(&input.output_dir)?;
         }
