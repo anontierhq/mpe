@@ -15,6 +15,16 @@ impl Step<PackagedOutput, ()> for PersistStep {
             ctx.output_path.display()
         ));
 
+        // SAFETY: reject shallow paths to prevent deletion of system/home directories
+        // from a crafted job payload
+        let depth = ctx.output_path.components().count();
+        if depth < 4 {
+            return Err(anyhow!(
+                "Refusing to write to shallow path '{}' (depth {depth} < 4)",
+                ctx.output_path.display()
+            ));
+        }
+
         if ctx.output_path.exists() {
             fs::remove_dir_all(&ctx.output_path).map_err(|e| {
                 anyhow!(
