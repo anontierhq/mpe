@@ -4,7 +4,7 @@ mod package_step;
 mod persist_step;
 mod validate_step;
 
-use std::{fs, path::PathBuf, sync::mpsc::Sender};
+use std::{path::PathBuf, sync::mpsc::Sender};
 
 use anyhow::Result;
 
@@ -26,15 +26,14 @@ pub struct VideoProcessor;
 impl TaskProcessor for VideoProcessor {
     fn process_task(
         &self,
-        job_id: &str,
+        _: &str,
         task: &Task,
         output_path: PathBuf,
         tx: Sender<ProcessMessage>,
     ) -> Result<()> {
-        let work_dir = PathBuf::from(format!("/tmp/mpe/{}/task_{}", job_id, task.id));
-        fs::create_dir_all(&work_dir)?;
+        let work_dir = tempfile::Builder::new().prefix("mpe-").tempdir()?;
 
-        let ctx = PipelineContext::new(task.id, work_dir, output_path, &tx);
+        let ctx = PipelineContext::new(task.id, work_dir.path().to_path_buf(), output_path, &tx);
         let input_path = PathBuf::from(&task.filepath);
 
         log_msg!(info, "Starting video pipeline for task {}", task.id);

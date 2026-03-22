@@ -12,6 +12,7 @@ indoc = "2.0.7"
 lapin = "4.3.0"
 log = "0.4.29"
 serde_json = "1.0.149"
+tempfile = "3.27.0"
 threadpool = "1.8.1"
 
 [dependencies.simple_logger]
@@ -36,4 +37,3 @@ features = ["tokio-comp"]
 
 [profile.release]
 opt-level = 3
-lto = "fat"
