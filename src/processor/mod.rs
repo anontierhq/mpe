@@ -5,14 +5,14 @@ mod video;
 use std::{
     path::PathBuf,
     sync::{
-        mpsc::{channel, Sender},
         Arc, Mutex,
+        mpsc::{Sender, channel},
     },
     thread,
 };
 
-use anyhow::{anyhow, Result};
-use redis::{aio::MultiplexedConnection, AsyncCommands};
+use anyhow::{Result, anyhow};
+use redis::{AsyncCommands, aio::MultiplexedConnection};
 use threadpool::ThreadPool;
 use tokio::runtime::Handle;
 
@@ -24,7 +24,7 @@ use crate::{
 
 use self::{image_processor::ImageProcessor, video::VideoProcessor};
 
-pub(crate) trait TaskProcessor {
+pub trait TaskProcessor {
     fn process_task(
         &self,
         job_id: &str,
@@ -34,13 +34,13 @@ pub(crate) trait TaskProcessor {
     ) -> Result<()>;
 }
 
-pub(crate) struct ProcessMessage {
+pub struct ProcessMessage {
     pub task_id: u64,
     pub m_type: TaskMessageType,
 }
 
 #[allow(dead_code)]
-pub(crate) enum TaskMessageType {
+pub enum TaskMessageType {
     Processing(String),
     Failed(String),
     Finished,
@@ -71,11 +71,7 @@ impl JobHandler {
     }
 }
 
-fn resolve_output_path(
-    job_id: &str,
-    task: &Task,
-    base_output: Option<&str>,
-) -> Result<PathBuf> {
+fn resolve_output_path(job_id: &str, task: &Task, base_output: Option<&str>) -> Result<PathBuf> {
     match (&task.output_path, base_output) {
         (Some(_), Some(_)) => Err(anyhow!(
             "Task {} specifies both output_path and job base_output — use one or the other",

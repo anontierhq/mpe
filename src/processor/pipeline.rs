@@ -4,7 +4,7 @@ use anyhow::Result;
 
 use crate::processor::{ProcessMessage, TaskMessageType};
 
-pub(crate) struct PipelineContext<'a> {
+pub struct PipelineContext<'a> {
     pub task_id: u64,
     pub work_dir: PathBuf,
     pub output_path: PathBuf,
@@ -34,6 +34,6 @@ impl<'a> PipelineContext<'a> {
     }
 }
 
-pub(crate) trait Step<I, O> {
+pub trait Step<I, O> {
     fn run(&self, input: I, ctx: &PipelineContext) -> Result<O>;
 }

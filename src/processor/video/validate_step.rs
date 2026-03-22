@@ -13,7 +13,7 @@ pub struct ValidatedVideo {
     pub has_audio: bool,
 }
 
-pub(crate) struct ValidateStep;
+pub struct ValidateStep;
 
 impl Step<PathBuf, ValidatedVideo> for ValidateStep {
     fn run(&self, path: PathBuf, ctx: &PipelineContext) -> Result<ValidatedVideo> {
