@@ -34,7 +34,7 @@ impl TaskProcessor for VideoProcessor {
         let work_dir = PathBuf::from(format!("/tmp/mpe/{}/task_{}", job_id, task.id));
         fs::create_dir_all(&work_dir)?;
 
-        let ctx = PipelineContext::new(job_id, task.id, work_dir, output_path, &tx);
+        let ctx = PipelineContext::new(task.id, work_dir, output_path, &tx);
         let input_path = PathBuf::from(&task.filepath);
 
         log_msg!(info, "Starting video pipeline for task {}", task.id);
