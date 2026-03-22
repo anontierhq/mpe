@@ -6,20 +6,20 @@ use crate::processor::pipeline::{PipelineContext, Step};
 
 use super::validate_step::ValidatedVideo;
 
-pub struct NormalizedVideo {
+pub struct MatrixVideo {
     pub path: PathBuf,
     pub width: u32,
     pub height: u32,
     pub has_audio: bool,
 }
 
-pub struct NormalizeStep;
+pub struct MatrixStep;
 
-impl Step<ValidatedVideo, NormalizedVideo> for NormalizeStep {
-    fn run(&self, input: ValidatedVideo, ctx: &PipelineContext) -> Result<NormalizedVideo> {
-        ctx.report("Normalizing video...");
+impl Step<ValidatedVideo, MatrixVideo> for MatrixStep {
+    fn run(&self, input: ValidatedVideo, ctx: &PipelineContext) -> Result<MatrixVideo> {
+        ctx.report("Generating matrix...");
 
-        let output_path = ctx.work_dir.join("normalized.mp4");
+        let output_path = ctx.work_dir.join("matrix.mp4");
 
         let mut cmd = Command::new("ffmpeg");
         cmd.args(["-i"]).arg(&input.path).args([
@@ -48,12 +48,12 @@ impl Step<ValidatedVideo, NormalizedVideo> for NormalizeStep {
 
         let status = cmd.status()?;
         if !status.success() {
-            return Err(anyhow!("ffmpeg normalization failed"));
+            return Err(anyhow!("ffmpeg matrix generation failed"));
         }
 
-        ctx.report("Normalization complete");
+        ctx.report("Matrix generation complete");
 
-        Ok(NormalizedVideo {
+        Ok(MatrixVideo {
             path: output_path,
             width: input.width,
             height: input.height,

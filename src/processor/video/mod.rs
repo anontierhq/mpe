@@ -1,5 +1,5 @@
 mod children_step;
-mod normalize_step;
+mod matrix_step;
 mod package_step;
 mod persist_step;
 mod validate_step;
@@ -16,7 +16,7 @@ use crate::{
 
 use super::{ProcessMessage, TaskProcessor};
 use children_step::GenerateChildrenStep;
-use normalize_step::NormalizeStep;
+use matrix_step::MatrixStep;
 use package_step::PackageStep;
 use persist_step::PersistStep;
 use validate_step::ValidateStep;
@@ -40,8 +40,8 @@ impl TaskProcessor for VideoProcessor {
         log_msg!(info, "Starting video pipeline for task {}", task.id);
 
         let validated = ValidateStep.run(input_path, &ctx)?;
-        let normalized = NormalizeStep.run(validated, &ctx)?;
-        let children = GenerateChildrenStep.run(normalized, &ctx)?;
+        let matrix = MatrixStep.run(validated, &ctx)?;
+        let children = GenerateChildrenStep.run(matrix, &ctx)?;
         let packaged = PackageStep.run(children, &ctx)?;
         PersistStep.run(packaged, &ctx)?;
 

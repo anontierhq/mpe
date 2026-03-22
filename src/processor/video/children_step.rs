@@ -4,7 +4,7 @@ use anyhow::{Result, anyhow};
 
 use crate::processor::pipeline::{PipelineContext, Step};
 
-use super::normalize_step::NormalizedVideo;
+use super::matrix_step::MatrixVideo;
 
 pub struct Rendition {
     pub path: PathBuf,
@@ -63,8 +63,8 @@ const RENDITION_LADDER: &[RenditionSpec] = &[
 
 pub struct GenerateChildrenStep;
 
-impl Step<NormalizedVideo, RenditionSet> for GenerateChildrenStep {
-    fn run(&self, input: NormalizedVideo, ctx: &PipelineContext) -> Result<RenditionSet> {
+impl Step<MatrixVideo, RenditionSet> for GenerateChildrenStep {
+    fn run(&self, input: MatrixVideo, ctx: &PipelineContext) -> Result<RenditionSet> {
         let is_portrait = input.height > input.width;
 
         let applicable: Vec<&RenditionSpec> = RENDITION_LADDER

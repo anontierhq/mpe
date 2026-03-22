@@ -32,6 +32,11 @@ impl Step<PackagedOutput, ()> for PersistStep {
             fs::remove_dir_all(&input.output_dir)?;
         }
 
+        let matrix_src = ctx.work_dir.join("matrix.mp4");
+        if matrix_src.exists() {
+            fs::copy(&matrix_src, ctx.output_path.join("matrix.mp4"))?;
+        }
+
         ctx.report(format!("Persisted at {}", ctx.output_path.display()));
         Ok(())
     }

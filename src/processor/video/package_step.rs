@@ -16,42 +16,32 @@ impl Step<RenditionSet, PackagedOutput> for PackageStep {
     fn run(&self, input: RenditionSet, ctx: &PipelineContext) -> Result<PackagedOutput> {
         ctx.report("Packaging streams (HLS + MPEG-DASH / CMAF)...");
 
-        let output_dir = PathBuf::from("output")
-            .join(ctx.job_id)
-            .join(ctx.task_id.to_string());
+        let output_dir = ctx.work_dir.join("packaged");
         fs::create_dir_all(&output_dir)?;
 
         let mut cmd = Command::new("packager");
+        cmd.current_dir(&output_dir);
 
         for rendition in &input.renditions {
             cmd.arg(format!(
-                "input={},stream=video,output={},segment_template={}",
+                "input={},stream=video,output={}.mp4,segment_template={}_$Number$.m4s",
                 rendition.path.display(),
-                output_dir
-                    .join(format!("{}.mp4", rendition.label))
-                    .display(),
-                output_dir
-                    .join(format!("{}_$Number$.m4s", rendition.label))
-                    .display(),
+                rendition.label,
+                rendition.label,
             ));
         }
 
         if let Some(audio) = &input.audio_path {
             cmd.arg(format!(
-                "input={},stream=audio,output={},segment_template={}",
+                "input={},stream=audio,output=audio.mp4,segment_template=audio_$Number$.m4s",
                 audio.display(),
-                output_dir.join("audio.mp4").display(),
-                output_dir.join("audio_$Number$.m4s").display(),
             ));
         }
 
-        let mpd_path = output_dir.join("manifest.mpd");
-        let m3u8_path = output_dir.join("master.m3u8");
-
         cmd.arg("--mpd_output")
-            .arg(&mpd_path)
+            .arg("manifest.mpd")
             .arg("--hls_master_playlist_output")
-            .arg(&m3u8_path)
+            .arg("master.m3u8")
             .args(["--fragment_duration", "2", "--segment_duration", "6"])
             .arg("--generate_static_live_mpd");
 
