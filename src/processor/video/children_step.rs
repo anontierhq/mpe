@@ -1,4 +1,4 @@
-use std::{fs, path::PathBuf, process::Command};
+use std::{path::PathBuf, process::Command};
 
 use anyhow::{Result, anyhow};
 
@@ -94,7 +94,13 @@ impl Step<MatrixVideo, RenditionSet> for GenerateChildrenStep {
             ctx.report(format!("Generating {} rendition...", spec.label));
 
             if is_same_res {
-                fs::copy(&input.path, &out_path)?;
+                // no need to generate for the same resolution,
+                // just use the matrix
+                renditions.push(Rendition {
+                    path: input.path.clone(),
+                    label: spec.label.to_string(),
+                });
+                continue;
             } else {
                 let scale_filter = if is_portrait {
                     format!("scale=w={}:h=-2", spec.target_w)
