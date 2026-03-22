@@ -8,8 +8,6 @@ use super::children_step::RenditionSet;
 
 pub struct PackagedOutput {
     pub output_dir: PathBuf,
-    pub mpd_path: PathBuf,
-    pub m3u8_path: PathBuf,
 }
 
 pub struct PackageStep;
@@ -67,10 +65,6 @@ impl Step<RenditionSet, PackagedOutput> for PackageStep {
             output_dir.display()
         ));
 
-        Ok(PackagedOutput {
-            output_dir,
-            mpd_path,
-            m3u8_path,
-        })
+        Ok(PackagedOutput { output_dir })
     }
 }

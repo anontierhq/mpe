@@ -1,6 +1,6 @@
 use std::{path::PathBuf, sync::mpsc::Sender};
 
-use anyhow::{Result, anyhow};
+use anyhow::Result;
 
 use crate::processor::{ProcessMessage, TaskMessageType};
 
@@ -39,19 +39,4 @@ impl<'a> PipelineContext<'a> {
 
 pub(crate) trait Step<I, O> {
     fn run(&self, input: I, ctx: &PipelineContext) -> Result<O>;
-}
-
-pub(crate) fn probe_dimensions(path: &PathBuf) -> Result<(u32, u32)> {
-    let probe =
-        ffprobe::ffprobe(path).map_err(|e| anyhow!("ffprobe failed on {}: {e}", path.display()))?;
-
-    let stream = probe
-        .streams
-        .iter()
-        .find(|s| s.codec_type.as_deref() == Some("video"))
-        .ok_or_else(|| anyhow!("No video stream in {}", path.display()))?;
-
-    let w = stream.width.ok_or_else(|| anyhow!("Missing width"))? as u32;
-    let h = stream.height.ok_or_else(|| anyhow!("Missing height"))? as u32;
-    Ok((w, h))
 }

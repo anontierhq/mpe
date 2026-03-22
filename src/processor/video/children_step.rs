@@ -2,15 +2,13 @@ use std::{fs, path::PathBuf, process::Command};
 
 use anyhow::{Result, anyhow};
 
-use crate::processor::pipeline::{PipelineContext, Step, probe_dimensions};
+use crate::processor::pipeline::{PipelineContext, Step};
 
 use super::normalize_step::NormalizedVideo;
 
 pub struct Rendition {
     pub path: PathBuf,
     pub label: String,
-    pub width: u32,
-    pub height: u32,
 }
 
 pub struct RenditionSet {
@@ -108,10 +106,14 @@ impl Step<NormalizedVideo, RenditionSet> for GenerateChildrenStep {
                     .args(["-i"])
                     .arg(&input.path)
                     .args([
-                        "-c:v", "libx264",
-                        "-crf", "23",
-                        "-preset", "fast",
-                        "-vf", &scale_filter,
+                        "-c:v",
+                        "libx264",
+                        "-crf",
+                        "23",
+                        "-preset",
+                        "fast",
+                        "-vf",
+                        &scale_filter,
                         "-an",
                         "-y",
                     ])
@@ -123,12 +125,9 @@ impl Step<NormalizedVideo, RenditionSet> for GenerateChildrenStep {
                 }
             }
 
-            let (w, h) = probe_dimensions(&out_path)?;
             renditions.push(Rendition {
                 path: out_path,
                 label: spec.label.to_string(),
-                width: w,
-                height: h,
             });
         }
 
