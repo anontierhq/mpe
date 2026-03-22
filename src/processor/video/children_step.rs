@@ -78,6 +78,14 @@ impl Step<MatrixVideo, RenditionSet> for GenerateChildrenStep {
             })
             .collect();
 
+        if applicable.is_empty() {
+            return Err(anyhow!(
+                "No applicable renditions for source resolution {}x{}",
+                input.width,
+                input.height
+            ));
+        }
+
         ctx.report(format!("Generating {} renditions...", applicable.len()));
 
         let mut renditions = Vec::new();
