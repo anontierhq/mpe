@@ -4,6 +4,9 @@ name = "mpe"
 version = "0.1.0"
 edition = "2024"
 
+[profile.release]
+opt-level = 3
+
 [dependencies]
 anyhow = "1.0.102"
 ffprobe = "0.4"
@@ -23,6 +26,10 @@ features = ["colors", "threads", "timestamps", "stderr"]
 version = "1.50.0"
 features = ["rt-multi-thread", "macros"]
 
+[dependencies.chrono]
+version = "0.4"
+features = ["serde"]
+
 [dependencies.serde]
 version = "1.0.228"
 features = ["derive"]
@@ -35,5 +42,5 @@ features = ["derive", "env"]
 version = "1.1.0"
 features = ["tokio-comp"]
 
-[profile.release]
-opt-level = 3
+[dev-dependencies]
+uuid = { version = "1.22.0", features = ["v4"] }
