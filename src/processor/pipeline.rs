@@ -26,10 +26,13 @@ impl<'a> PipelineContext<'a> {
         }
     }
 
-    pub fn report(&self, msg: impl Into<String>) {
+    pub fn report(&self, step: impl Into<String>, msg: impl Into<String>) {
         let _ = self.tx.send(ProcessMessage {
             task_id: self.task_id,
-            m_type: TaskMessageType::Processing(msg.into()),
+            m_type: TaskMessageType::Processing {
+                step: step.into(),
+                message: msg.into(),
+            },
         });
     }
 }

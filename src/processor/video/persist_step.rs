@@ -10,7 +10,7 @@ pub struct PersistStep;
 
 impl Step<PackagedOutput, ()> for PersistStep {
     fn run(&self, input: PackagedOutput, ctx: &PipelineContext) -> Result<()> {
-        ctx.report(format!(
+        ctx.report("Persisting", format!(
             "Persisting output to {}...",
             ctx.output_path.display()
         ));
@@ -51,7 +51,7 @@ impl Step<PackagedOutput, ()> for PersistStep {
             fs::copy(&matrix_src, ctx.output_path.join("matrix.mp4"))?;
         }
 
-        ctx.report(format!("Persisted at {}", ctx.output_path.display()));
+        ctx.report("Persisting", format!("Persisted at {}", ctx.output_path.display()));
         Ok(())
     }
 }

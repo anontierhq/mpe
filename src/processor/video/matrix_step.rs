@@ -17,7 +17,7 @@ pub struct MatrixStep;
 
 impl Step<ValidatedVideo, MatrixVideo> for MatrixStep {
     fn run(&self, input: ValidatedVideo, ctx: &PipelineContext) -> Result<MatrixVideo> {
-        ctx.report("Generating matrix...");
+        ctx.report("Matrix", "Generating matrix...");
 
         let output_path = ctx.work_dir.join("matrix.mp4");
 
@@ -51,7 +51,7 @@ impl Step<ValidatedVideo, MatrixVideo> for MatrixStep {
             return Err(anyhow!("ffmpeg matrix generation failed"));
         }
 
-        ctx.report("Matrix generation complete");
+        ctx.report("Matrix", "Matrix generation complete");
 
         Ok(MatrixVideo {
             path: output_path,

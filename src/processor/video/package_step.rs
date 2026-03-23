@@ -14,7 +14,7 @@ pub struct PackageStep;
 
 impl Step<RenditionSet, PackagedOutput> for PackageStep {
     fn run(&self, input: RenditionSet, ctx: &PipelineContext) -> Result<PackagedOutput> {
-        ctx.report("Packaging streams (HLS + MPEG-DASH / CMAF)...");
+        ctx.report("Packaging", "Packaging streams (HLS + MPEG-DASH / CMAF)...");
 
         let output_dir = ctx.work_dir.join("packaged");
         fs::create_dir_all(&output_dir)?;
@@ -50,7 +50,7 @@ impl Step<RenditionSet, PackagedOutput> for PackageStep {
             return Err(anyhow!("packager failed"));
         }
 
-        ctx.report(format!(
+        ctx.report("Packaging", format!(
             "Packaging complete: output at {}",
             output_dir.display()
         ));

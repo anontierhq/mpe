@@ -1,15 +1,9 @@
 use anyhow::Result;
+use mpe::log_msg;
 use simple_logger::SimpleLogger;
 
-use crate::config::Config;
-use crate::messaging::Worker;
-
-mod config;
-mod constants;
-mod jobs;
-mod logger;
-mod messaging;
-mod processor;
+use mpe::config::Config;
+use mpe::messaging::Worker;
 
 #[tokio::main]
 async fn main() -> Result<()> {
