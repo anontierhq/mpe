@@ -61,10 +61,13 @@ impl Step<PathBuf, ValidatedVideo> for ValidateStep {
             .and_then(|d| d.parse::<f64>().ok())
             .unwrap_or(0.0);
 
-        ctx.report("Validating", format!(
-            "Validation OK: {}x{}, {:.1}s, format: {}",
-            width, height, duration_secs, probe.format.format_name
-        ));
+        ctx.report(
+            "Validating",
+            format!(
+                "Validation OK: {}x{}, {:.1}s, format: {}",
+                width, height, duration_secs, probe.format.format_name
+            ),
+        );
 
         Ok(ValidatedVideo {
             path,

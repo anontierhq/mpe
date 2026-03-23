@@ -1,13 +1,8 @@
 use anyhow::Result;
 use redis::aio::MultiplexedConnection;
 
-use crate::{
-    config::Config,
-    jobs::ProcessJob,
-    log_msg,
-    processor::JobHandler,
-};
 use super::connection::{self as rabbit, RabbitConnection};
+use crate::{config::Config, jobs::ProcessJob, log_msg, processor::JobHandler};
 
 pub struct Worker {
     rabbit: RabbitConnection,
@@ -25,7 +20,11 @@ impl Worker {
             .await?;
         log_msg!(info, "Connected to Redis");
 
-        Ok(Self { rabbit, redis, config })
+        Ok(Self {
+            rabbit,
+            redis,
+            config,
+        })
     }
 
     pub async fn run(&mut self) -> Result<()> {
@@ -103,7 +102,13 @@ mod tests {
         }"#;
 
         let job = parse_job_bytes(data).unwrap();
-        assert!(matches!(job, ProcessJob::Composed { job_id: "job-42", .. }));
+        assert!(matches!(
+            job,
+            ProcessJob::Composed {
+                job_id: "job-42",
+                ..
+            }
+        ));
     }
 
     #[test]
@@ -115,7 +120,13 @@ mod tests {
         }"#;
 
         let job = parse_job_bytes(data).unwrap();
-        assert!(matches!(job, ProcessJob::Unique { attached_job: "job-99", .. }));
+        assert!(matches!(
+            job,
+            ProcessJob::Unique {
+                attached_job: "job-99",
+                ..
+            }
+        ));
     }
 
     #[test]

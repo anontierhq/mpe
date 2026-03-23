@@ -1,5 +1,5 @@
-use crate::jobs::Task;
 use super::{ProcessMessage, TaskProcessor};
+use crate::jobs::Task;
 
 pub struct ImageProcessor;
 

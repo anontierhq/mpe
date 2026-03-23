@@ -50,10 +50,10 @@ impl Step<RenditionSet, PackagedOutput> for PackageStep {
             return Err(anyhow!("packager failed"));
         }
 
-        ctx.report("Packaging", format!(
-            "Packaging complete: output at {}",
-            output_dir.display()
-        ));
+        ctx.report(
+            "Packaging",
+            format!("Packaging complete: output at {}", output_dir.display()),
+        );
 
         Ok(PackagedOutput { output_dir })
     }

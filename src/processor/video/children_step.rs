@@ -86,7 +86,10 @@ impl Step<MatrixVideo, RenditionSet> for GenerateChildrenStep {
             ));
         }
 
-        ctx.report("GeneratingChildren", format!("Generating {} renditions...", applicable.len()));
+        ctx.report(
+            "GeneratingChildren",
+            format!("Generating {} renditions...", applicable.len()),
+        );
 
         let mut renditions = Vec::new();
 
@@ -99,7 +102,10 @@ impl Step<MatrixVideo, RenditionSet> for GenerateChildrenStep {
                 spec.target_h == input.height
             };
 
-            ctx.report("GeneratingChildren", format!("Generating {} rendition...", spec.label));
+            ctx.report(
+                "GeneratingChildren",
+                format!("Generating {} rendition...", spec.label),
+            );
 
             if is_same_res {
                 // no need to generate for the same resolution,
@@ -165,10 +171,13 @@ impl Step<MatrixVideo, RenditionSet> for GenerateChildrenStep {
             None
         };
 
-        ctx.report("GeneratingChildren", format!(
-            "Children generation complete: {} renditions produced",
-            renditions.len()
-        ));
+        ctx.report(
+            "GeneratingChildren",
+            format!(
+                "Children generation complete: {} renditions produced",
+                renditions.len()
+            ),
+        );
 
         Ok(RenditionSet {
             renditions,
