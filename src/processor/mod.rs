@@ -117,15 +117,18 @@ async fn process_multiple_tasks(
     let job_id = job_id.to_string();
 
     if let Some(base) = base_output {
-        StatusForwarder::write_pre_dispatch_failure(
-            &job_id,
-            total_tasks,
-            &format!("base_output '{}' must be an absolute path", base),
-            &mut redis_conn.clone(),
-        )
-        .await
-        .expect("Redis write failed");
-        return Err(vec![]);
+        if !PathBuf::from(base).is_absolute() {
+            let mut conn = redis_conn.clone();
+            StatusForwarder::write_pre_dispatch_failure(
+                &job_id,
+                total_tasks,
+                &format!("base_output '{}' must be an absolute path", base),
+                &mut conn,
+            )
+            .await
+            .expect("Redis write failed");
+            return Err(vec![]);
+        }
     }
 
     let forwarder = StatusForwarder::new(job_id.clone(), total_tasks, redis_conn.clone())
