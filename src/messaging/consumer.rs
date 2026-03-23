@@ -1,5 +1,5 @@
 use anyhow::Result;
-use redis::{AsyncCommands, aio::MultiplexedConnection};
+use redis::aio::MultiplexedConnection;
 
 use crate::{
     config::Config,
@@ -53,12 +53,10 @@ impl Worker {
         };
 
         let job_id = job_id_of(&job);
-        self.set_job_status(&job_id, format!("[STARTED] Job {job_id} started")).await;
 
-        match JobHandler::it(job, &self.config, &self.redis) {
+        match JobHandler::it(job, &self.config, &self.redis).await {
             Ok(_) => {
-                self.set_job_status(&job_id, format!("[FINISHED] Job {job_id} finished gracefully"))
-                    .await;
+                log_msg!(info, "Job {job_id} finished");
                 tokio::spawn(rabbit::ack(delivery));
             }
             Err(failed) => {
@@ -67,20 +65,9 @@ impl Worker {
                     .map(|t| format!("id:{}", t.id))
                     .collect::<Vec<_>>()
                     .join(", ");
-                self.set_job_status(&job_id, format!("[ERROR] Job {job_id} failed. Tasks: {failed_ids}"))
-                    .await;
+                log_msg!(error, "Job {job_id} failed. Tasks: {failed_ids}");
                 tokio::spawn(rabbit::reject(delivery));
             }
-        }
-    }
-
-    async fn set_job_status(&mut self, job_id: &str, status: String) {
-        log_msg!(debug, "Job {job_id} status: {status}");
-        if let Err(err) = self.redis
-            .set::<_, _, ()>(format!("job:{job_id}"), status)
-            .await
-        {
-            log_msg!(error, "Failed to set job {job_id} status: {err}");
         }
     }
 }

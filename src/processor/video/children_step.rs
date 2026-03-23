@@ -86,7 +86,7 @@ impl Step<MatrixVideo, RenditionSet> for GenerateChildrenStep {
             ));
         }
 
-        ctx.report(format!("Generating {} renditions...", applicable.len()));
+        ctx.report("GeneratingChildren", format!("Generating {} renditions...", applicable.len()));
 
         let mut renditions = Vec::new();
 
@@ -99,7 +99,7 @@ impl Step<MatrixVideo, RenditionSet> for GenerateChildrenStep {
                 spec.target_h == input.height
             };
 
-            ctx.report(format!("Generating {} rendition...", spec.label));
+            ctx.report("GeneratingChildren", format!("Generating {} rendition...", spec.label));
 
             if is_same_res {
                 // no need to generate for the same resolution,
@@ -147,7 +147,7 @@ impl Step<MatrixVideo, RenditionSet> for GenerateChildrenStep {
 
         let audio_path = if input.has_audio {
             let ap = ctx.work_dir.join("audio.mp4");
-            ctx.report("Extracting audio track...");
+            ctx.report("GeneratingChildren", "Extracting audio track...");
 
             let status = Command::new("ffmpeg")
                 .args(["-i"])
@@ -165,7 +165,7 @@ impl Step<MatrixVideo, RenditionSet> for GenerateChildrenStep {
             None
         };
 
-        ctx.report(format!(
+        ctx.report("GeneratingChildren", format!(
             "Children generation complete: {} renditions produced",
             renditions.len()
         ));

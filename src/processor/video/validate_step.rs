@@ -17,7 +17,7 @@ pub struct ValidateStep;
 
 impl Step<PathBuf, ValidatedVideo> for ValidateStep {
     fn run(&self, path: PathBuf, ctx: &PipelineContext) -> Result<ValidatedVideo> {
-        ctx.report("Validating input file...");
+        ctx.report("Validating", "Validating input file...");
 
         if !path.exists() {
             return Err(anyhow!("File not found: {}", path.display()));
@@ -61,7 +61,7 @@ impl Step<PathBuf, ValidatedVideo> for ValidateStep {
             .and_then(|d| d.parse::<f64>().ok())
             .unwrap_or(0.0);
 
-        ctx.report(format!(
+        ctx.report("Validating", format!(
             "Validation OK: {}x{}, {:.1}s, format: {}",
             width, height, duration_secs, probe.format.format_name
         ));
