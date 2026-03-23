@@ -4,6 +4,7 @@ pub mod status;
 mod video;
 
 use std::{
+    panic,
     path::PathBuf,
     sync::{
         Arc, Mutex,
@@ -170,18 +171,33 @@ async fn process_multiple_tasks(
 
         pool.execute(move || {
             let task_id = task.id;
-            match processor.process_task(&job_id_clone, &task, output_path, tx_clone.clone()) {
-                Ok(_) => {
+            let result = panic::catch_unwind(panic::AssertUnwindSafe(|| {
+                processor.process_task(&job_id_clone, &task, output_path, tx_clone.clone())
+            }));
+
+            match result {
+                Ok(Ok(_)) => {
                     let _ = tx_clone.send(ProcessMessage {
                         task_id,
                         m_type: TaskMessageType::Finished,
                     });
                 }
-                Err(err) => {
+                Ok(Err(err)) => {
                     log_msg!(error, "Error processing task {}. Error: {}", task_id, err);
                     let _ = tx_clone.send(ProcessMessage {
                         task_id,
                         m_type: TaskMessageType::Failed(err.to_string()),
+                    });
+                    failed_tasks_mutex
+                        .lock()
+                        .expect("Poisoned lock found!")
+                        .push(task);
+                }
+                Err(_) => {
+                    log_msg!(error, "Task {} panicked", task_id);
+                    let _ = tx_clone.send(ProcessMessage {
+                        task_id,
+                        m_type: TaskMessageType::Failed("task panicked".into()),
                     });
                     failed_tasks_mutex
                         .lock()
