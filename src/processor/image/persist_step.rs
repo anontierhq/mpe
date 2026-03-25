@@ -44,17 +44,10 @@ impl Step<SanitizedImage, ()> for ImagePersistStep {
         fs::create_dir_all(&ctx.output_path)?;
 
         let dest = ctx.output_path.join(dest_name);
-        fs::copy(&input.path, &dest).map_err(|e| {
-            anyhow!(
-                "Failed to copy output to {}: {e}",
-                dest.display()
-            )
-        })?;
+        fs::copy(&input.path, &dest)
+            .map_err(|e| anyhow!("Failed to copy output to {}: {e}", dest.display()))?;
 
-        ctx.report(
-            "Persisting",
-            format!("Persisted at {}", dest.display()),
-        );
+        ctx.report("Persisting", format!("Persisted at {}", dest.display()));
         Ok(())
     }
 }

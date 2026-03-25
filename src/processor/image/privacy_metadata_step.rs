@@ -68,10 +68,7 @@ impl Step<ValidatedImage, SanitizedImage> for StripPrivacyMetadataStep {
 
         ctx.report(
             "Metadata",
-            format!(
-                "Stripped privacy-related metadata: {}",
-                out_path.display()
-            ),
+            format!("Stripped privacy-related metadata: {}", out_path.display()),
         );
 
         Ok(SanitizedImage { path: out_path })
