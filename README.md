@@ -69,25 +69,34 @@ docker compose up -d
 
 This starts RabbitMQ (port 5672, management UI on 15672) and Redis (port 6379).
 
-**2. Create the queue**
+**2. Create the queue and dead-letter routing**
 
-Open the RabbitMQ management UI at `http://localhost:15672` (guest/guest), go to Queues and Streams, and create a queue named `mpe_default_queue` with durable enabled.
+Open the RabbitMQ management UI at `http://localhost:15672` (guest/guest).
+
+1. Create a **direct** exchange, e.g. `mpe.dlx`.
+2. Create a **dead-letter queue**, e.g. `mpe_default_queue.dlq`, durable, bound to `mpe.dlx` with routing key `mpe_default_queue.dlq` (routing key can match your naming convention).
+3. Create the **work queue** `mpe_default_queue` (durable) with **arguments**:
+   - `x-dead-letter-exchange` = `mpe.dlx`
+   - `x-dead-letter-routing-key` = `mpe_default_queue.dlq` (must match the binding above)
+
+When a job still fails after in-process task retries, the worker **rejects** the message with `requeue=false`. With these arguments, RabbitMQ **dead-letters** the message to the DLQ instead of dropping it. Monitor the DLQ depth in production (metrics/alerts); replay messages manually after fixing the cause.
 
 **3. Run**
 
 ```bash
-cargo run --release -- --output ./output
+cargo run --release
 ```
 
 Available options:
 
-| Flag              | Env                | Default                     | Description                       |
-| ----------------- | ------------------ | --------------------------- | --------------------------------- |
-| `--addr`          | `AMQP_ADDR`        | `amqp://127.0.0.1:5672/%2f` | RabbitMQ address                  |
-| `--queue`         | `CONSUMER_QUEUE`   | `mpe_default_queue`         | Queue name                        |
-| `--workers`       | `MPE_WORKERS`      | `1`                         | Number of concurrent task workers |
-| `--redis-addr`    | `REDIS_ADDR`       | `redis://127.0.0.1:6379`    | Redis address                     |
-| `-o` / `--output` | `WATERMARK_OUTPUT` | _(required)_                | Output directory                  |
+| Flag                      | Env                        | Default                     | Description                                                                 |
+| ------------------------- | -------------------------- | --------------------------- | --------------------------------------------------------------------------- |
+| `--addr`                  | `AMQP_ADDR`                | `amqp://127.0.0.1:5672/%2f` | RabbitMQ address                                                            |
+| `--queue`                 | `CONSUMER_QUEUE`           | `mpe_default_queue`         | Queue name                                                                  |
+| `--workers`               | `MPE_WORKERS`              | `1`                         | Number of concurrent task workers                                           |
+| `--task-retries`          | `MPE_TASK_RETRIES`         | `0`                         | Extra attempts per task after a failure (total attempts = 1 + this value) |
+| `--task-retry-delay-ms`   | `MPE_TASK_RETRY_DELAY_MS`  | `1000`                      | Delay between task retry attempts (milliseconds)                            |
+| `--redis-addr`            | `REDIS_ADDR`               | `redis://127.0.0.1:6379`    | Redis address                                                               |
 
 **4. Publish a job**
 
