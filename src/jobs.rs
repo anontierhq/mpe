@@ -9,10 +9,6 @@ pub enum ProcessJob<'a> {
         tasks_to_process: Vec<Task>,
         base_output: Option<String>,
     },
-    Unique {
-        attached_job: &'a str,
-        task_to_process: Task,
-    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -59,30 +55,6 @@ mod tests {
                 assert_eq!(tasks_to_process[1].id, 2);
                 assert!(matches!(tasks_to_process[1].task_type, TaskType::Image));
             }
-            _ => panic!("expected Composed"),
-        }
-    }
-
-    #[test]
-    fn deserializes_unique_job() {
-        let json = r#"{
-            "type": "Unique",
-            "attached_job": "job-001",
-            "task_to_process": { "id": 3, "filepath": "/media/c.mp4", "task_type": "Video" }
-        }"#;
-
-        let job: ProcessJob = serde_json::from_str(json).unwrap();
-
-        match job {
-            ProcessJob::Unique {
-                attached_job,
-                task_to_process,
-            } => {
-                assert_eq!(attached_job, "job-001");
-                assert_eq!(task_to_process.id, 3);
-                assert!(matches!(task_to_process.task_type, TaskType::Video));
-            }
-            _ => panic!("expected Unique"),
         }
     }
 

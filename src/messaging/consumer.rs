@@ -83,7 +83,6 @@ fn parse_job_bytes(data: &[u8]) -> Result<ProcessJob<'_>> {
 fn job_id_of(job: &ProcessJob) -> String {
     match job {
         ProcessJob::Composed { job_id, .. } => job_id.to_string(),
-        ProcessJob::Unique { attached_job, .. } => attached_job.to_string(),
     }
 }
 
@@ -112,24 +111,6 @@ mod tests {
     }
 
     #[test]
-    fn parses_valid_unique_bytes() {
-        let data = br#"{
-            "type": "Unique",
-            "attached_job": "job-99",
-            "task_to_process": { "id": 7, "filepath": "/b.jpg", "task_type": "Image" }
-        }"#;
-
-        let job = parse_job_bytes(data).unwrap();
-        assert!(matches!(
-            job,
-            ProcessJob::Unique {
-                attached_job: "job-99",
-                ..
-            }
-        ));
-    }
-
-    #[test]
     fn fails_on_invalid_utf8() {
         let data = &[0xFF, 0xFE, 0x00];
         assert!(parse_job_bytes(data).is_err());
@@ -145,16 +126,5 @@ mod tests {
         let json = r#"{ "type": "Composed", "job_id": "abc", "tasks_to_process": [] }"#;
         let job: ProcessJob = serde_json::from_str(json).unwrap();
         assert_eq!(job_id_of(&job), "abc");
-    }
-
-    #[test]
-    fn job_id_of_unique() {
-        let json = r#"{
-            "type": "Unique",
-            "attached_job": "xyz",
-            "task_to_process": { "id": 1, "filepath": "/f", "task_type": "Video" }
-        }"#;
-        let job: ProcessJob = serde_json::from_str(json).unwrap();
-        assert_eq!(job_id_of(&job), "xyz");
     }
 }
