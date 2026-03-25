@@ -1,12 +1,12 @@
 use std::sync::OnceLock;
 
 use lapin::{
+    BasicProperties, Connection, ConnectionProperties, ExchangeKind,
     options::{
         BasicAckOptions, BasicGetOptions, BasicPublishOptions, BasicRejectOptions,
         ExchangeDeclareOptions, QueueBindOptions, QueueDeclareOptions, QueuePurgeOptions,
     },
     types::{AMQPValue, FieldTable, LongString, ShortString},
-    BasicProperties, Connection, ConnectionProperties, ExchangeKind,
 };
 use mpe::constants::DEFAULT_AMQP_ADDR;
 
@@ -51,9 +51,7 @@ async fn open_channel() -> lapin::Channel {
                 "RabbitMQ connection failed ({e}). Start the broker, e.g. `docker compose up -d rabbitmq`."
             )
         });
-    conn.create_channel()
-        .await
-        .expect("create_channel failed")
+    conn.create_channel().await.expect("create_channel failed")
 }
 
 async fn ensure_test_topology(ch: &lapin::Channel) {
@@ -136,10 +134,7 @@ async fn reject_without_requeue_dead_letters_to_dlq() {
     publish_to_work(&ch, payload).await;
 
     let incoming = ch
-        .basic_get(
-            TEST_WORK.into(),
-            BasicGetOptions { no_ack: false },
-        )
+        .basic_get(TEST_WORK.into(), BasicGetOptions { no_ack: false })
         .await
         .expect("basic_get")
         .expect("expected one message on work queue");
@@ -150,10 +145,7 @@ async fn reject_without_requeue_dead_letters_to_dlq() {
         .expect("reject");
 
     let dlq_msg = ch
-        .basic_get(
-            TEST_DLQ.into(),
-            BasicGetOptions { no_ack: false },
-        )
+        .basic_get(TEST_DLQ.into(), BasicGetOptions { no_ack: false })
         .await
         .expect("basic_get DLQ")
         .expect("expected message on DLQ after reject");
@@ -176,24 +168,15 @@ async fn ack_does_not_send_to_dlq() {
     publish_to_work(&ch, b"ack-stays-off-dlq").await;
 
     let incoming = ch
-        .basic_get(
-            TEST_WORK.into(),
-            BasicGetOptions { no_ack: false },
-        )
+        .basic_get(TEST_WORK.into(), BasicGetOptions { no_ack: false })
         .await
         .expect("basic_get")
         .expect("expected one message on work queue");
 
-    incoming
-        .ack(BasicAckOptions::default())
-        .await
-        .expect("ack");
+    incoming.ack(BasicAckOptions::default()).await.expect("ack");
 
     let dlq_tail = ch
-        .basic_get(
-            TEST_DLQ.into(),
-            BasicGetOptions { no_ack: false },
-        )
+        .basic_get(TEST_DLQ.into(), BasicGetOptions { no_ack: false })
         .await
         .expect("basic_get DLQ");
 
