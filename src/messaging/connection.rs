@@ -58,9 +58,7 @@ pub async fn ack(delivery: Delivery) -> Result<()> {
 pub async fn reject(delivery: Delivery) -> Result<()> {
     log_msg!(info, "Rejecting delivery tag {}", delivery.delivery_tag);
     delivery
-        .reject(BasicRejectOptions {
-            requeue: false,
-        })
+        .reject(BasicRejectOptions { requeue: false })
         .await?;
     Ok(())
 }

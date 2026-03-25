@@ -33,10 +33,15 @@ mod tests {
     #[test]
     fn succeeds_on_first_attempt() {
         let calls = AtomicU32::new(0);
-        let r = run_with_retries(3, Duration::ZERO, || {
-            calls.fetch_add(1, Ordering::SeqCst);
-            Ok::<(), ()>(())
-        }, |_, _| {});
+        let r = run_with_retries(
+            3,
+            Duration::ZERO,
+            || {
+                calls.fetch_add(1, Ordering::SeqCst);
+                Ok::<(), ()>(())
+            },
+            |_, _| {},
+        );
         assert!(r.is_ok());
         assert_eq!(calls.load(Ordering::SeqCst), 1);
     }
@@ -44,14 +49,15 @@ mod tests {
     #[test]
     fn succeeds_after_failures() {
         let calls = AtomicU32::new(0);
-        let r = run_with_retries(3, Duration::ZERO, || {
-            let n = calls.fetch_add(1, Ordering::SeqCst);
-            if n < 2 {
-                Err(())
-            } else {
-                Ok(())
-            }
-        }, |_, _| {});
+        let r = run_with_retries(
+            3,
+            Duration::ZERO,
+            || {
+                let n = calls.fetch_add(1, Ordering::SeqCst);
+                if n < 2 { Err(()) } else { Ok(()) }
+            },
+            |_, _| {},
+        );
         assert!(r.is_ok());
         assert_eq!(calls.load(Ordering::SeqCst), 3);
     }
@@ -59,10 +65,15 @@ mod tests {
     #[test]
     fn returns_last_error_when_exhausted() {
         let calls = AtomicU32::new(0);
-        let r = run_with_retries(2, Duration::ZERO, || {
-            let n = calls.fetch_add(1, Ordering::SeqCst);
-            Err(n)
-        }, |_, _| {});
+        let r = run_with_retries(
+            2,
+            Duration::ZERO,
+            || {
+                let n = calls.fetch_add(1, Ordering::SeqCst);
+                Err(n)
+            },
+            |_, _| {},
+        );
         // fetch_add returns the previous value; third attempt returns Err(2).
         assert_eq!(r, Err(2));
     }
@@ -71,12 +82,17 @@ mod tests {
     fn on_retry_called_before_each_retry() {
         let calls = AtomicU32::new(0);
         let retries = AtomicU32::new(0);
-        let _ = run_with_retries(2, Duration::ZERO, || {
-            calls.fetch_add(1, Ordering::SeqCst);
-            Err(())
-        }, |_, _| {
-            retries.fetch_add(1, Ordering::SeqCst);
-        });
+        let _ = run_with_retries(
+            2,
+            Duration::ZERO,
+            || {
+                calls.fetch_add(1, Ordering::SeqCst);
+                Err(())
+            },
+            |_, _| {
+                retries.fetch_add(1, Ordering::SeqCst);
+            },
+        );
         assert_eq!(calls.load(Ordering::SeqCst), 3);
         assert_eq!(retries.load(Ordering::SeqCst), 2);
     }
