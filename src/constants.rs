@@ -7,9 +7,7 @@ pub const REDIS_ADDR: &str = "REDIS_ADDR";
 
 pub const DEFAULT_AMQP_ADDR: &str = "amqp://127.0.0.1:5672/%2f";
 pub const DEFAULT_CONSUMER_QUEUE: &str = "mpe_default_queue";
-/// Dead-letter exchange name used with the default work queue when the broker is configured for DLX.
 pub const DEFAULT_DLX_EXCHANGE: &str = "mpe.dlx";
-/// Dead-letter queue name paired with [`DEFAULT_CONSUMER_QUEUE`] when using [`DEFAULT_DLX_EXCHANGE`].
 pub const DEFAULT_DLQ_QUEUE: &str = "mpe_default_queue.dlq";
 pub const DEFAULT_REDIS_ADDR: &str = "redis://127.0.0.1:6379";
 pub const DEFAULT_WORKERS: &str = "1";
