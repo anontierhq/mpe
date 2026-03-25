@@ -189,7 +189,10 @@ async fn process_multiple_tasks(
                         )
                     })) {
                         Ok(inner) => inner,
-                        Err(_) => Err(anyhow::anyhow!("task panicked")),
+                        Err(payload) => Err(anyhow::anyhow!(
+                            "task panicked: {}",
+                            panic_payload_to_string(payload)
+                        )),
                     }
                 },
                 |failed_attempt, err| {
@@ -244,6 +247,16 @@ async fn process_multiple_tasks(
     }
 
     Ok(())
+}
+
+fn panic_payload_to_string(payload: Box<dyn std::any::Any + Send>) -> String {
+    if let Some(s) = payload.downcast_ref::<&str>() {
+        (*s).to_string()
+    } else if let Some(s) = payload.downcast_ref::<String>() {
+        s.clone()
+    } else {
+        "non-string panic payload".to_string()
+    }
 }
 
 fn get_task_processor(m_type: &TaskType) -> Box<dyn TaskProcessor + Send + Sync> {

@@ -1,3 +1,5 @@
+use std::sync::OnceLock;
+
 use lapin::{
     options::{
         BasicAckOptions, BasicGetOptions, BasicPublishOptions, BasicRejectOptions,
@@ -7,6 +9,16 @@ use lapin::{
     BasicProperties, Connection, ConnectionProperties, ExchangeKind,
 };
 use mpe::constants::DEFAULT_AMQP_ADDR;
+
+/// Both tests share the same queue names; run them one at a time to avoid purge/get races.
+static AMQP_TEST_MUTEX: OnceLock<tokio::sync::Mutex<()>> = OnceLock::new();
+
+async fn amqp_test_lock() -> tokio::sync::MutexGuard<'static, ()> {
+    AMQP_TEST_MUTEX
+        .get_or_init(|| tokio::sync::Mutex::new(()))
+        .lock()
+        .await
+}
 
 const TEST_DLX: &str = "mpe_integration_test.dlx";
 const TEST_WORK: &str = "mpe_integration_test.work";
@@ -115,6 +127,7 @@ async fn publish_to_work(ch: &lapin::Channel, payload: &[u8]) {
 
 #[tokio::test]
 async fn reject_without_requeue_dead_letters_to_dlq() {
+    let _lock = amqp_test_lock().await;
     let ch = open_channel().await;
     ensure_test_topology(&ch).await;
     purge_pair(&ch).await;
@@ -125,10 +138,7 @@ async fn reject_without_requeue_dead_letters_to_dlq() {
     let incoming = ch
         .basic_get(
             TEST_WORK.into(),
-            BasicGetOptions {
-                no_ack: false,
-                ..Default::default()
-            },
+            BasicGetOptions { no_ack: false },
         )
         .await
         .expect("basic_get")
@@ -142,10 +152,7 @@ async fn reject_without_requeue_dead_letters_to_dlq() {
     let dlq_msg = ch
         .basic_get(
             TEST_DLQ.into(),
-            BasicGetOptions {
-                no_ack: false,
-                ..Default::default()
-            },
+            BasicGetOptions { no_ack: false },
         )
         .await
         .expect("basic_get DLQ")
@@ -161,6 +168,7 @@ async fn reject_without_requeue_dead_letters_to_dlq() {
 
 #[tokio::test]
 async fn ack_does_not_send_to_dlq() {
+    let _lock = amqp_test_lock().await;
     let ch = open_channel().await;
     ensure_test_topology(&ch).await;
     purge_pair(&ch).await;
@@ -170,10 +178,7 @@ async fn ack_does_not_send_to_dlq() {
     let incoming = ch
         .basic_get(
             TEST_WORK.into(),
-            BasicGetOptions {
-                no_ack: false,
-                ..Default::default()
-            },
+            BasicGetOptions { no_ack: false },
         )
         .await
         .expect("basic_get")
@@ -187,10 +192,7 @@ async fn ack_does_not_send_to_dlq() {
     let dlq_tail = ch
         .basic_get(
             TEST_DLQ.into(),
-            BasicGetOptions {
-                no_ack: false,
-                ..Default::default()
-            },
+            BasicGetOptions { no_ack: false },
         )
         .await
         .expect("basic_get DLQ");
