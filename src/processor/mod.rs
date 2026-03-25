@@ -1,5 +1,6 @@
 mod image_processor;
 pub mod pipeline;
+mod retry;
 pub mod status;
 mod video;
 
@@ -10,6 +11,7 @@ use std::{
         Arc, Mutex,
         mpsc::{Sender, channel},
     },
+    time::Duration,
 };
 
 use anyhow::{Result, anyhow};
@@ -23,7 +25,7 @@ use crate::{
     processor::status::StatusForwarder,
 };
 
-use self::{image_processor::ImageProcessor, video::VideoProcessor};
+use self::{image_processor::ImageProcessor, retry::run_with_retries, video::VideoProcessor};
 
 pub trait TaskProcessor {
     fn process_task(
@@ -146,6 +148,8 @@ async fn process_multiple_tasks(
 
     let pool = ThreadPool::new(config.workers as usize);
     let failed_tasks = Arc::new(Mutex::new(vec![]));
+    let task_retries = config.task_retries;
+    let retry_delay = Duration::from_millis(config.task_retry_delay_ms);
 
     for task in tasks {
         let output_path = match resolve_output_path(&job_id, &task, base_output) {
@@ -171,33 +175,53 @@ async fn process_multiple_tasks(
 
         pool.execute(move || {
             let task_id = task.id;
-            let result = panic::catch_unwind(panic::AssertUnwindSafe(|| {
-                processor.process_task(&job_id_clone, &task, output_path, tx_clone.clone())
-            }));
+            let job_id_for_log = job_id_clone.clone();
+            let result = run_with_retries(
+                task_retries,
+                retry_delay,
+                || {
+                    match panic::catch_unwind(panic::AssertUnwindSafe(|| {
+                        processor.process_task(
+                            &job_id_clone,
+                            &task,
+                            output_path.clone(),
+                            tx_clone.clone(),
+                        )
+                    })) {
+                        Ok(inner) => inner,
+                        Err(payload) => Err(anyhow::anyhow!(
+                            "task panicked: {}",
+                            panic_payload_to_string(payload)
+                        )),
+                    }
+                },
+                |failed_attempt, err| {
+                    log_msg!(
+                        warn,
+                        "Task {task_id} (job {job_id_for_log}) attempt {failed_attempt} failed: {err}; retrying after {:?}",
+                        retry_delay
+                    );
+                },
+            );
 
             match result {
-                Ok(Ok(_)) => {
+                Ok(()) => {
                     let _ = tx_clone.send(ProcessMessage {
                         task_id,
                         m_type: TaskMessageType::Finished,
                     });
                 }
-                Ok(Err(err)) => {
-                    log_msg!(error, "Error processing task {}. Error: {}", task_id, err);
+                Err(err) => {
+                    log_msg!(
+                        error,
+                        "Error processing task {} (job {}). Error: {}",
+                        task_id,
+                        job_id_for_log,
+                        err
+                    );
                     let _ = tx_clone.send(ProcessMessage {
                         task_id,
                         m_type: TaskMessageType::Failed(err.to_string()),
-                    });
-                    failed_tasks_mutex
-                        .lock()
-                        .expect("Poisoned lock found!")
-                        .push(task);
-                }
-                Err(_) => {
-                    log_msg!(error, "Task {} panicked", task_id);
-                    let _ = tx_clone.send(ProcessMessage {
-                        task_id,
-                        m_type: TaskMessageType::Failed("task panicked".into()),
                     });
                     failed_tasks_mutex
                         .lock()
@@ -223,6 +247,16 @@ async fn process_multiple_tasks(
     }
 
     Ok(())
+}
+
+fn panic_payload_to_string(payload: Box<dyn std::any::Any + Send>) -> String {
+    if let Some(s) = payload.downcast_ref::<&str>() {
+        (*s).to_string()
+    } else if let Some(s) = payload.downcast_ref::<String>() {
+        s.clone()
+    } else {
+        "non-string panic payload".to_string()
+    }
 }
 
 fn get_task_processor(m_type: &TaskType) -> Box<dyn TaskProcessor + Send + Sync> {
