@@ -71,7 +71,6 @@ impl JobHandler {
                 )
                 .await
             }
-            ProcessJob::Unique { .. } => todo!(),
         }
     }
 }
