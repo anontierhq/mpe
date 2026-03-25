@@ -1,4 +1,4 @@
-mod image_processor;
+pub mod image;
 pub mod pipeline;
 mod retry;
 pub mod status;
@@ -25,7 +25,7 @@ use crate::{
     processor::status::StatusForwarder,
 };
 
-use self::{image_processor::ImageProcessor, retry::run_with_retries, video::VideoProcessor};
+use self::{image::ImageProcessor, retry::run_with_retries, video::VideoProcessor};
 
 pub trait TaskProcessor {
     fn process_task(

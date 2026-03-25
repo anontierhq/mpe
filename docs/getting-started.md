@@ -7,6 +7,7 @@ This guide covers what you need on the machine, how to configure MPE, and how to
 - **Rust** (2024 edition toolchain) — [rustup](https://rustup.rs)
 - **ffmpeg** and **ffprobe** on `PATH`, with H.264 encoding support (e.g. libx264)
 - **Shaka Packager** binary named `packager` on `PATH` — [releases](https://github.com/shaka-project/shaka-packager/releases) (project tests/docs have used v3.7.x)
+- **exiftool** on **PATH** — required for **`task_type: "Image"`** jobs (metadata stripping); [ExifTool](https://exiftool.org/)
 - **Docker** (or another RabbitMQ + Redis deployment) if you follow the compose flow below
 
 ### Tooling quick install (examples)
@@ -14,13 +15,13 @@ This guide covers what you need on the machine, how to configure MPE, and how to
 **Debian / Ubuntu**
 
 ```bash
-sudo apt install ffmpeg
+sudo apt install ffmpeg libimage-exiftool-perl
 ```
 
 **macOS**
 
 ```bash
-brew install ffmpeg
+brew install ffmpeg exiftool
 ```
 
 **Shaka Packager** — download the binary for your OS, make it executable, install as `packager`:
@@ -33,7 +34,7 @@ sudo mv packager-linux-x64 /usr/local/bin/packager
 Verify:
 
 ```bash
-ffmpeg -version && ffprobe -version && packager --version
+ffmpeg -version && ffprobe -version && packager --version && exiftool -ver
 ```
 
 ## Run Redis and RabbitMQ locally

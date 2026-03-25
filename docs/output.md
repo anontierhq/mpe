@@ -16,7 +16,7 @@ Rules enforced by the worker:
 
 ## Safety: minimum path depth
 
-Before writing, the video pipeline’s persist step **refuses** output paths that are too shallow (fewer than **four** path components). This reduces the risk of misconfigured jobs deleting or overwriting sensitive directories. Prefer deep, dedicated roots such as `/var/mpe/output/my-tenant/job-id/task-id`.
+Before writing, the video and image persist steps **refuse** output paths that are too shallow (fewer than **four** path components). This reduces the risk of misconfigured jobs deleting or overwriting sensitive directories. Prefer deep, dedicated roots such as `/var/mpe/output/my-tenant/job-id/task-id`.
 
 ## Video task layout
 
@@ -34,7 +34,13 @@ Fragment/segment durations are configured in the packager step (e.g. 2s fragment
 
 ## Image tasks
 
-`task_type: "Image"` is accepted in job JSON, but the current **image processor is a no-op** (it completes without writing packaged output). Do not expect HLS/DASH artifacts for image tasks until that pipeline is implemented.
+On success, an image task writes **one file** into the task output directory: the **original base name** (e.g. `photo.jpg` → `{output_dir}/photo.jpg`). The pipeline:
+
+1. **Validates** the input with **ffprobe** (allowed still-image containers such as JPEG, PNG, WebP, GIF, TIFF, HEIC/HEIF, AVIF — see `src/processor/image/validate_step.rs`).
+2. **Strips privacy-related metadata** (GPS and common location fields) with **exiftool** on a working copy — see [Image metadata stripping](image-metadata.md).
+3. **Persists** the scrubbed file to the output directory (same depth and clear-dir rules as video).
+
+Image tasks do **not** produce HLS/DASH artifacts.
 
 ## Clearing previous runs
 
@@ -72,5 +78,6 @@ While a task runs, Redis key `job:{job_id}:task:{task_id}` shows `processing` wi
 ## Related reading
 
 - [Getting started](getting-started.md) — `base_output` and flags
+- [Image metadata stripping](image-metadata.md) — exiftool tags removed for image tasks
 - [RabbitMQ](rabbitmq.md) — job JSON examples
 - [Redis](redis.md) — task and job status fields
